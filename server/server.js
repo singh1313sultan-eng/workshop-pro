@@ -667,8 +667,9 @@ route('POST', '/api/jobcards/:id/status', (req, q, p, body) => {
     assertOpen(j);
     if (j.lines.some((l) => l.status === 'pending')) throw conflict('Resolve all pending customer approvals before closing');
     if (!j.lines.some((l) => l.status === 'approved')) throw conflict('Nothing approved to invoice');
-    const notIssued = j.lines.filter((l) => l.kind === 'part' && l.status === 'approved' && (l.issuedQty || 0) < l.qty);
-    if (notIssued.length) throw conflict(`Issue all approved parts from stock before closing: ${notIssued.map((l) => l.code).join(', ')}`);
+    // everything approved on the estimate must be issued: parts from stock, labour to the workshop
+    const notIssued = j.lines.filter((l) => l.status === 'approved' && (l.kind === 'part' ? (l.issuedQty || 0) < l.qty : !l.labourIssue));
+    if (notIssued.length) throw conflict(`Issue all approved parts and labour before closing (Parts & labour issue tab). Not issued: ${notIssued.map((l) => `${l.description} (${l.code})`).join(', ')}`, { notIssued: notIssued.map((l) => l.id) });
     const issued = billing.issueForJob(j);
     j.status = 'closed';
     j.stage = 'ready_delivery'; // the gate pass releases the vehicle

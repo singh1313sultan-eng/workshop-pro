@@ -13,6 +13,8 @@ const BASE = `http://localhost:${PORT}/api`;
 const r2 = (n) => Math.round(n * 100) / 100;
 let proc, tmp;
 
+// closing a job card needs every approved part and labour line issued
+const issueEverything = async (id) => { await api('POST', `/jobcards/${id}/issue-parts`, {}); await api('POST', `/jobcards/${id}/issue-labour`, {}); };
 async function api(method, url, body, user) {
   const headers = { 'Content-Type': 'application/json' };
   if (user) headers['X-User-Id'] = user;
@@ -80,6 +82,7 @@ test('approvals, stage gate, close and reopen', async () => {
   await api('PATCH', `/jobcards/${id}/lines/1`, { status: 'approved' });
   await api('PATCH', `/jobcards/${id}/lines/2`, { status: 'declined', reason: 'Too expensive' });
   assert.equal((await api('POST', `/jobcards/${id}/stage`, { stage: 'ready_invoice' })).status, 200);
+  await issueEverything(id);
   const closed = await api('POST', `/jobcards/${id}/status`, { action: 'close', remarks: 'Done' });
   assert.equal(closed.status, 200);
   assert.equal(closed.body.status, 'closed');
@@ -401,6 +404,10 @@ test('stock: inward creates batches, issue is FIFO, return goes back to the same
   assert.equal(notIssued.status, 409);
   assert.match(notIssued.body.error, /8980937150/);
   assert.equal((await api('POST', `/jobcards/${id}/issue-parts`, {})).status, 200);
+  const labourLeft = await api('POST', `/jobcards/${id}/status`, { action: 'close', remarks: 'Done' });
+  assert.equal(labourLeft.status, 409); // approved labour is not issued yet
+  assert.match(labourLeft.body.error, /labour/);
+  await api('POST', `/jobcards/${id}/issue-labour`, {});
   assert.equal((await api('POST', `/jobcards/${id}/status`, { action: 'close', remarks: 'Done' })).status, 200);
   await api('POST', '/admin/reset');
 });
@@ -515,7 +522,7 @@ test('billing: tax invoice with 10% GST, payments, gate pass, credit note and re
   const id = 'RO-2026-00564'; // A/C regas $145 + cabin filter $42, customer Coastal Plumbing (account customer)
   await api('PATCH', `/jobcards/${id}/lines/1`, { status: 'approved' });
   await api('PATCH', `/jobcards/${id}/lines/2`, { status: 'approved' });
-  await api('POST', `/jobcards/${id}/issue-parts`, {});
+  await issueEverything(id);
   const closed = await api('POST', `/jobcards/${id}/status`, { action: 'close', remarks: 'Done' });
   assert.equal(closed.status, 200);
   assert.equal(closed.body.stage, 'ready_delivery');
@@ -572,6 +579,7 @@ test('billing: tax invoice with 10% GST, payments, gate pass, credit note and re
 test('billing: a private customer must pay before the vehicle is released', async () => {
   await api('POST', '/admin/reset');
   const id = 'RO-2026-00549'; // wheel alignment $129, Jason Nguyen (not on account)
+  await issueEverything(id);
   const closed = await api('POST', `/jobcards/${id}/status`, { action: 'close', remarks: 'Done' });
   const invId = closed.body.invoice.number;
   assert.equal((await api('GET', `/invoices/${invId}`)).body.total, 141.9);
@@ -594,7 +602,7 @@ test('claims: insurer pays the repair, customer pays the excess; warranty billed
   assert.equal(c.status, 200);
   assert.equal(c.body.claim.status, 'lodged');
   assert.ok(c.body.lines.every((l) => l.payer === 'claim'));
-  await api('POST', `/jobcards/${id}/issue-parts`, {});
+  await issueEverything(id);
   // cannot invoice before the insurer authorises
   const early = await api('POST', `/jobcards/${id}/status`, { action: 'close', remarks: 'x' });
   assert.equal(early.status, 409);
@@ -625,7 +633,7 @@ test('claims: insurer pays the repair, customer pays the excess; warranty billed
   await api('PATCH', `/jobcards/${w}/lines/6`, { payer: 'customer' }); // mirror is not covered
   for (const l of [4, 5, 6]) await api('PATCH', `/jobcards/${w}/lines/${l}`, { status: 'approved' });
   await api('POST', '/stock/inwards', { supplier: 'Isuzu Australia Parts', invoiceNo: 'W1', lines: [{ partNo: '8974460950', qty: 2, unitCost: 100 }] });
-  await api('POST', `/jobcards/${w}/issue-parts`, {});
+  await issueEverything(w);
   const wc = await api('POST', `/jobcards/${w}/status`, { action: 'close', remarks: 'Done' });
   assert.equal(wc.status, 200);
   const wInvs = wc.body.invoice.invoices;
@@ -712,6 +720,7 @@ test('purchasing: reorder → PO → part receipt with GST → return → suppli
 test('reports: GST/BAS summary, sales, payments, CSV export', async () => {
   await api('POST', '/admin/reset');
   // sale: wheel alignment $129 + GST = $141.90, paid by EFTPOS
+  await issueEverything('RO-2026-00549');
   const c = await api('POST', '/jobcards/RO-2026-00549/status', { action: 'close', remarks: 'Done' });
   await api('POST', `/invoices/${c.body.invoice.number}/payments`, { method: 'EFTPOS', amount: 141.9 });
   // purchase: 2 cabin filters at $30 + GST

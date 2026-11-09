@@ -468,11 +468,13 @@ function statusModal(preset) {
     : [['close', 'Close & issue tax invoice', 'Issue the tax invoice(s). The vehicle is released with a gate pass once paid.'], ['hold', 'Put on hold', 'Pause work, e.g. waiting for parts or customer.']];
   const sel = preset && actions.some((a) => a[0] === preset) ? preset : actions[0][0];
   const pending = J.lines.filter((l) => l.status === 'pending').length;
+  const notIssued = toIssue().length + labourToIssue().length;
   openModal({
     title: 'Update status',
     body: `<div class="row" style="margin-bottom:14px"><span class="muted">Current:</span>${statusBadge(J.status)}${stageBadge(J.stage)}</div>
       <div class="stack" style="gap:8px" id="stOpts">${actions.map(([k, l, d]) => `<label class="pkg ${k === sel ? 'on' : ''}" style="cursor:pointer"><input type="radio" name="st" value="${k}" ${k === sel ? 'checked' : ''} style="accent-color:var(--primary);width:18px;height:18px"><span style="flex:1"><b>${l}</b><div class="small muted">${d}</div></span></label>`).join('')}</div>
       ${pending && J.status !== 'closed' ? `<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>${pending} estimate line(s) still need customer approval. Resolve them before closing.</div></div>` : ''}
+      ${notIssued && J.status !== 'closed' ? `<div class="alert warn" style="margin-top:12px">${ic('alert')}<div>${notIssued} approved part/labour line(s) are not issued yet. Everything on the estimate must be issued before closing. <a href="#/jobs/${J.id}?tab=issue" onclick="closeModal()">Go to Parts & labour issue</a></div></div>` : ''}
       ${J.status !== 'closed' ? `<div class="totals card-b" style="padding:12px 0 0"><div class="r"><span>Amount to invoice</span><b>${money(J.billing.total)}</b></div></div>` : ''}
       <label class="f" style="margin-top:14px">Remarks<textarea class="inp" id="stR" name="remarks" placeholder="e.g. All work completed and road-tested"></textarea></label>`,
     foot: `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" id="stOk">Update</button>`,
