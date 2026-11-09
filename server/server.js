@@ -27,7 +27,9 @@ const ROOT = path.join(__dirname, '..');
 loadEnvFile(path.join(ROOT, '.env'));
 const PORT = Number(process.env.PORT) || 4300;
 const PUBLIC = path.join(ROOT, 'public');
-const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
+// Serverless hosts (Vercel) run several short-lived copies of this server and only /tmp is writable.
+const SERVERLESS = !!(process.env.VERCEL || process.env.SERVERLESS);
+const DATA_DIR = process.env.DATA_DIR || (SERVERLESS ? '/tmp/workshop-pro' : path.join(ROOT, 'data'));
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const STORAGE = process.env.STORAGE || (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY ? 'supabase' : 'file');
 
@@ -111,6 +113,15 @@ async function persist() {
     try { db = (await store.load()) || db; } catch (e2) { console.error('Reload failed:', e2.message); }
     throw Object.assign(new Error(`Could not save to the database. Your last change was not saved. (${e.message})`), { status: 503 });
   }
+}
+// On a serverless host another copy of the server may have changed the data since we loaded it,
+// so every API request starts from what is in the database.
+let loadedAt = 0;
+async function refresh() {
+  if (!SERVERLESS || !store) return;
+  if (Date.now() - loadedAt < 50) return; // just loaded (cold start)
+  db = (await store.load()) || db;
+  loadedAt = Date.now();
 }
 // One write request at a time, so a change and its database write are never interleaved.
 let queue = Promise.resolve();
@@ -1062,10 +1073,10 @@ function serveStatic(req, res, pathname) {
   if (!file.startsWith(PUBLIC)) return send(res, 403, { error: 'Forbidden' });
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(PUBLIC, 'index.html');
   res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-  fs.createReadStream(file).pipe(res);
+  res.end(fs.readFileSync(file));
 }
 
-const server = http.createServer(async (req, res) => {
+async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
   if (req.method === 'OPTIONS') {
     res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE', 'Access-Control-Allow-Headers': 'Content-Type, X-User-Id' });
@@ -1080,6 +1091,7 @@ const server = http.createServer(async (req, res) => {
     const m = url.pathname.match(r.re);
     const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
     const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
+    if (req.method === 'GET') await refresh();
     const user = requestUser(req);
     const isPublic = PUBLIC_ROUTES.some((re) => re.test(url.pathname));
     if (!user && !isPublic) throw new HttpError(401, 'Please sign in');
@@ -1095,6 +1107,7 @@ const server = http.createServer(async (req, res) => {
     const out = req.method === 'GET'
       ? await r.handler(req, url.searchParams, params, body, res)
       : await exclusive(async () => {
+          await refresh();
           dirty = false;
           actor = requestUser(req);
           currentOutlet = actor ? resolveOutlet(req, actor) : null;
@@ -1114,11 +1127,22 @@ const server = http.createServer(async (req, res) => {
   } finally {
     console.log(`${req.method} ${url.pathname} ${res.statusCode} ${Date.now() - started}ms`);
   }
-});
+}
 
-load()
-  .then(() => server.listen(PORT, () => console.log(`Workshop Management System running at http://localhost:${PORT} (storage: ${store ? 'Supabase ' + process.env.SUPABASE_URL : DB_FILE})`)))
-  .catch((e) => {
-    console.error('Could not load data:', e.message);
-    process.exit(1);
-  });
+let loading = null;
+/** Loads the data once per server copy; used by the serverless entry point (api/index.js). */
+function ready() {
+  if (!loading) loading = load().then(() => { loadedAt = Date.now(); });
+  return loading;
+}
+module.exports = { handle, ready };
+
+if (require.main === module) {
+  const server = http.createServer(handle);
+  ready()
+    .then(() => server.listen(PORT, () => console.log(`Workshop Management System running at http://localhost:${PORT} (storage: ${store ? 'Supabase ' + process.env.SUPABASE_URL : DB_FILE})`)))
+    .catch((e) => {
+      console.error('Could not load data:', e.message);
+      process.exit(1);
+    });
+}

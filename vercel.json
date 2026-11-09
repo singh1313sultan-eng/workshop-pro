@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "regions": ["syd1"],
+  "functions": {
+    "api/index.js": { "maxDuration": 30 }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/p/:token", "destination": "/approve.html" }
+  ]
+}

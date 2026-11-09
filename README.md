@@ -180,6 +180,15 @@ The rights list and default roles are defined in `server/access.js`. Each endpoi
 4. **HTTPS.** Put the app behind HTTPS (Render and Fly do this automatically). The session cookie is `Secure` when `COOKIE_SECURE=1`.
 5. **One instance.** Run a single instance: the server keeps the working data in memory and writes every change to Supabase.
 
+### Vercel
+
+`vercel.json` serves `public/` from Vercel's CDN and sends `/api/*` to one serverless function (`api/index.js`) in Sydney (`syd1`). Set these environment variables in the Vercel project:
+
+- `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (required: Vercel has no persistent disk)
+- `COOKIE_SECURE=1`, `PUBLIC_URL` (the Vercel address), and optionally `SESSION_SECRET`, the SMS and email keys
+
+On Vercel each API request reloads the data from Supabase, so several copies of the function never work from stale data. The time zone is set to Australia/Sydney in code (`APP_TZ` overrides it) because Vercel reserves `TZ`. Request bodies are limited to 4.5 MB, so attach photos smaller than that.
+
 ## Supabase database
 
 The server stores its data in Supabase (Postgres) when `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set, either in the environment or in a `.env` file in the project root (see `.env.example`). Without them it falls back to `data/db.json`. To force a mode, set `STORAGE=file` or `STORAGE=supabase`. `GET /api/health` reports which one is active.
