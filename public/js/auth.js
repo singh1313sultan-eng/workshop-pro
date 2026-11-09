@@ -27,7 +27,7 @@ function showLogin(message) {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { $('#lgErr').textContent = data.error || 'Could not sign in'; btn.disabled = false; $('#lgP').select(); return; }
       el.remove();
-      if (data.mustChangePassword) { await changePasswordModal(true); }
+      if (data.mustChangePassword) { document.documentElement.classList.remove('booting'); await changePasswordModal(true); }
       location.reload();
     } catch { $('#lgErr').textContent = 'Cannot reach the server'; btn.disabled = false; }
   };

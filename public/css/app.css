@@ -409,7 +409,9 @@ dl{margin:0}
 .payer-tag{cursor:pointer;border:0}
 
 /* start-up: nothing of the app is shown until we know who is signed in */
-html.booting body > *:not(.brandbar):not(#loginScreen){visibility:hidden}
+html.booting body > *:not(.brandbar):not(#loginScreen):not(#layer):not(#toasts){visibility:hidden}
+html.booting #layer{position:relative;z-index:300}
+html.booting #toasts{z-index:300}
 html.booting body::before{content:"";position:fixed;inset:var(--brand-h,40px) 0 0 0;z-index:150;background:linear-gradient(135deg,#0f766e 0%,#115e59 45%,#0f172a 100%)}
 html.booting body::after{content:"";position:fixed;z-index:151;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin .8s linear infinite}
 @media print{html.booting body::before,html.booting body::after{display:none}}
