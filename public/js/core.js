@@ -300,7 +300,9 @@ const App = {
     try { this.meta = await api('GET', '/meta'); $('#wsName').textContent = this.meta.workshop.name; } catch { /* shown by toast */ }
     if (typeof initBranchPicker === 'function') initBranchPicker();
     updateBrandbar();
-    if (!location.hash && !this.can('dashboard.view')) location.hash = this.can('jobs.view') ? '#/jobs' : '#/settings';
+    // the app always opens on the Dashboard (or the first screen this user is allowed to see)
+    const home = this.can('dashboard.view') ? '#/' : this.can('jobs.view') ? '#/jobs' : '#/settings';
+    if ((location.hash || '#/') !== home) history.replaceState(null, '', location.pathname + location.search + home);
     window.addEventListener('hashchange', () => { closeModal(); this.render().then(() => window.scrollTo(0, 0)); });
     $('#gsearch').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value.trim()) { App.go('#/walkin?q=' + encodeURIComponent(e.target.value.trim())); e.target.value = ''; e.target.blur(); } });
     this.updateBadges();
