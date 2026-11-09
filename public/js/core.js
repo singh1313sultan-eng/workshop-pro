@@ -11,6 +11,8 @@ const ICONS = {
   wrench: '<path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6l-8.4 8.4a2.1 2.1 0 0 1-3-3L18 9.6l-1.3-1.3a4 4 0 0 1-5-5l2.6 2.6 2.4-.6.6-2.4z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+  chevdown: '<path d="m6 9 6 6 6-6"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   check: '<path d="m5 12 5 5L20 7"/>',
@@ -48,6 +50,47 @@ const ICONS = {
 function ic(name, cls = '') {
   return `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 }
+/* ---------------- side menu: collapse to icons, fold sections ---------------- */
+function toggleSideMenu(force) {
+  const mini = typeof force === 'boolean' ? force : !document.documentElement.classList.contains('side-mini');
+  document.documentElement.classList.toggle('side-mini', mini);
+  try { localStorage.setItem('wpSideMini', mini ? '1' : '0'); } catch { /* private mode */ }
+  const b = $('#sideToggle');
+  if (b) { b.title = mini ? 'Expand menu' : 'Collapse menu'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-expanded', String(!mini)); }
+}
+function initSideMenu() {
+  let closed = [];
+  try { closed = JSON.parse(localStorage.getItem('wpNavClosed') || '[]'); } catch { closed = []; }
+  document.querySelectorAll('.side .navlabel').forEach((lab) => {
+    const nav = lab.nextElementSibling;
+    if (!nav || !nav.classList.contains('nav')) return;
+    const key = lab.textContent.trim();
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'navlabel';
+    btn.dataset.right = lab.dataset.right || '';
+    if (!btn.dataset.right) delete btn.dataset.right;
+    btn.innerHTML = `<span>${esc(key)}</span>${ic('chevdown', 'sm')}`;
+    const set = (shut) => {
+      nav.classList.toggle('folded', shut);
+      btn.classList.toggle('folded', shut);
+      btn.setAttribute('aria-expanded', String(!shut));
+      btn.title = shut ? `Show ${key}` : `Hide ${key}`;
+    };
+    // a folded section still opens when you are on one of its pages
+    set(closed.includes(key) && !nav.querySelector('a.on'));
+    btn.onclick = () => {
+      const shut = !nav.classList.contains('folded');
+      set(shut);
+      closed = closed.filter((k) => k !== key);
+      if (shut) closed.push(key);
+      try { localStorage.setItem('wpNavClosed', JSON.stringify(closed)); } catch { /* private mode */ }
+    };
+    lab.replaceWith(btn);
+  });
+  toggleSideMenu(document.documentElement.classList.contains('side-mini'));
+}
+
 function hydrateIcons(root = document) {
   root.querySelectorAll('[data-icon]').forEach((el) => {
     el.innerHTML = ic(el.dataset.icon, el.classList.contains('logo') ? '' : '');
@@ -242,6 +285,7 @@ const App = {
   authMode: 'password',
   async start() {
     hydrateIcons();
+    initSideMenu();
     try { this.authMode = (await (await fetch('/api/auth/mode')).json()).mode || 'password'; } catch { this.authMode = 'password'; }
     if (this.authMode === 'password') {
       const r = await fetch('/api/me');

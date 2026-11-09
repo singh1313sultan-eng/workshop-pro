@@ -43,6 +43,28 @@ svg.i.sm{width:15px;height:15px} svg.i.lg{width:22px;height:22px}
 .side .sep{height:1px;background:var(--line);margin:10px 4px}
 .navlabel{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:2px 12px 4px}
 .side{overflow-y:auto}
+/* collapsible side menu */
+.brand{position:relative}
+.side-toggle{margin-left:auto;flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--faint,#94a3b8);cursor:pointer}
+.side-toggle:hover{background:#f3f4f6;color:var(--ink-2);border-color:var(--line)}
+button.navlabel{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:transparent;font-family:inherit;cursor:pointer;border-radius:6px;text-align:left}
+button.navlabel:hover{color:var(--ink-2);background:#f8fafc}
+button.navlabel svg{width:14px;height:14px;transition:transform .15s}
+button.navlabel.folded svg{transform:rotate(-90deg)}
+.nav.folded{display:none}
+@media (min-width:1025px){
+  .shell{transition:grid-template-columns .15s}
+  html.side-mini{--side:76px}
+  html.side-mini .side{padding:16px 10px;align-items:center}
+  html.side-mini .brand{padding:6px 0 18px;flex-direction:column;gap:8px} html.side-mini .brand div{display:none}
+  html.side-mini .side-toggle{margin-left:0}
+  html.side-mini .navlabel{display:none}
+  html.side-mini .nav.folded{display:block}
+  html.side-mini .nav a{justify-content:center;padding:12px;width:52px}
+  html.side-mini .nav a span,html.side-mini .nav .count{display:none}
+  html.side-mini .nav a.on::before{left:-10px}
+  html.side-mini .side .foot{padding:6px;background:transparent;justify-content:center} html.side-mini .side .foot div,html.side-mini .side .foot>i{display:none}
+}
 .side .foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:#f8fafc;border:1px solid transparent;width:100%;font:inherit;color:inherit;cursor:pointer}
 .side .foot:hover{border-color:var(--line,#e2e8f0);background:#f1f5f9}
 .side .foot>i{color:var(--faint,#94a3b8);flex:none}
@@ -311,6 +333,8 @@ dl{margin:0}
   .side{padding:16px 10px;align-items:center}
   .brand{padding:6px 0 18px} .brand div{display:none}
   .navlabel{display:none}
+  .side-toggle{display:none}
+  .nav.folded{display:block}
   .nav a{justify-content:center;padding:12px;width:52px}
   .nav a span,.nav .count{display:none}
   .nav a.on::before{left:-10px}

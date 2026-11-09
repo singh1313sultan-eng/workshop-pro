@@ -7,6 +7,7 @@
 <meta name="description" content="Workshop Pro – service and repair management for Australian workshops">
 <title>Workshop Pro</title>
 <link rel="stylesheet" href="/css/app.css">
+<script>try { if (localStorage.getItem('wpSideMini') === '1') document.documentElement.classList.add('side-mini'); } catch (e) {}</script>
 <link rel="icon" type="image/svg+xml" href="/img/cloudmesh-mark.svg">
 </head>
 <body>
@@ -22,7 +23,7 @@
 </header>
 <div class="shell">
   <aside class="side" aria-label="Main navigation">
-    <div class="brand"><span class="logo" data-icon="wrench"></span><div><b>Workshop Pro</b><span id="wsName">Service management</span></div></div>
+    <div class="brand"><span class="logo" data-icon="wrench"></span><div><b>Workshop Pro</b><span id="wsName">Service management</span></div><button type="button" class="side-toggle" id="sideToggle" onclick="toggleSideMenu()" aria-label="Collapse menu" title="Collapse menu"><i data-icon="sidebar"></i></button></div>
     <nav class="nav">
       <a href="#/" data-nav="dash" data-right="dashboard.view" title="Dashboard"><i data-icon="grid"></i><span>Dashboard</span></a>
       <a href="#/jobs" data-nav="jobs" data-right="jobs.view" title="Job cards"><i data-icon="clipboard"></i><span>Job cards</span><em class="count hide" id="navApprovals"></em></a>
