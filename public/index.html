@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="description" content="Workshop Pro – service and repair management for Australian workshops">
+<title>Workshop Pro</title>
+<link rel="stylesheet" href="/css/app.css">
+<link rel="icon" type="image/svg+xml" href="/img/cloudmesh-mark.svg">
+</head>
+<body>
+<header class="brandbar" id="brandbar" aria-label="CloudMesh Digital Solutions">
+  <a class="bb-logo" href="#/" aria-label="CloudMesh Digital Solutions – home">
+    <svg class="bb-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true"><defs><linearGradient id="cmCloud" x1="0.1" y1="0.1" x2="0.9" y2="0.9"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="55%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#10b981"/></linearGradient></defs><path d="M14.5 36 A8.5 8.5 0 0 1 13.2 19.1 A11 11 0 0 1 34.4 17.6 A9.3 9.3 0 0 1 35 36 Z" fill="url(#cmCloud)"/><path d="M16.5 30 L24 19.5 L31.5 30 Z" stroke="white" stroke-opacity=".85" stroke-width="1.6" stroke-linejoin="round"/><circle cx="16.5" cy="30" r="2.4" fill="white"/><circle cx="24" cy="19.5" r="2.4" fill="white"/><circle cx="31.5" cy="30" r="2.4" fill="white"/></svg>
+    <span class="bb-word"><b>Cloud<em>mesh</em></b><small>Digital Solutions</small></span>
+  </a>
+  <div class="bb-right">
+    <span class="bb-chip" id="bbCountry" title="Country"><span class="bb-flag" id="bbFlag"></span><span class="bb-cname" id="bbCname">Australia</span></span>
+    <span class="bb-chip bb-cur" id="bbCur" title="Currency"><b id="bbSym">$</b><span id="bbCode">AUD</span></span>
+  </div>
+</header>
+<div class="shell">
+  <aside class="side" aria-label="Main navigation">
+    <div class="brand"><span class="logo" data-icon="wrench"></span><div><b>Workshop Pro</b><span id="wsName">Service management</span></div></div>
+    <nav class="nav">
+      <a href="#/" data-nav="dash" data-right="dashboard.view" title="Dashboard"><i data-icon="grid"></i><span>Dashboard</span></a>
+      <a href="#/jobs" data-nav="jobs" data-right="jobs.view" title="Job cards"><i data-icon="clipboard"></i><span>Job cards</span><em class="count hide" id="navApprovals"></em></a>
+      <a href="#/board" data-nav="board" data-right="jobs.view" title="Workshop board"><i data-icon="grid"></i><span>Workshop board</span></a>
+      <a href="#/appointments" data-nav="appointments" data-right="jobs.view" title="Bookings"><i data-icon="clock"></i><span>Bookings</span></a>
+      <a href="#/my" data-nav="my" data-right="jobs.clock" title="My jobs"><i data-icon="wrench"></i><span>My jobs</span></a>
+      <a href="#/walkin" data-nav="walkin" data-right="vehicles.view" title="Walk-in"><i data-icon="search"></i><span>Walk-in / Vehicles</span></a>
+      <a href="#/stock" data-nav="stock" data-right="stock.view" title="Parts stock"><i data-icon="box"></i><span>Parts stock</span></a>
+      <a href="#/billing" data-nav="billing" data-right="billing.view" title="Invoices & payments"><i data-icon="receipt"></i><span>Invoices & payments</span></a>
+      <a href="#/reports" data-nav="reports" data-right="reports.view" title="Reports"><i data-icon="grid"></i><span>Reports</span></a>
+      <a href="#/messages" data-nav="messages" data-right="messages.send" title="Messages"><i data-icon="mail"></i><span>Messages</span></a>
+    </nav>
+    <div class="sep" data-right="masters.view"></div>
+    <div class="navlabel" data-right="masters.view">Masters</div>
+    <nav class="nav" data-right="masters.view">
+      <a href="#/masters/users" data-nav="m_users" title="Users"><i data-icon="user"></i><span>Users</span></a>
+      <a href="#/masters/parts" data-nav="m_parts" title="Parts"><i data-icon="box"></i><span>Parts</span><em class="count hide" id="navLowStock" title="Parts below reorder level"></em></a>
+      <a href="#/masters/labour" data-nav="m_labour" title="Labour"><i data-icon="wrench"></i><span>Labour</span></a>
+      <a href="#/masters/insurers" data-nav="m_insurers" title="Insurance companies"><i data-icon="shield"></i><span>Insurance</span></a>
+      <a href="#/masters/suppliers" data-nav="m_suppliers" title="Suppliers"><i data-icon="box"></i><span>Suppliers</span></a>
+    </nav>
+    <div class="sep" data-right="masters.view"></div>
+    <div class="navlabel" data-right="masters.view">Service setup</div>
+    <nav class="nav" data-right="masters.view">
+      <a href="#/masters/repairTypes" data-nav="m_repairTypes" title="Repair types"><i data-icon="wrench"></i><span>Repair types</span></a>
+      <a href="#/masters/fuelTypes" data-nav="m_fuelTypes" title="Fuel types"><i data-icon="flag"></i><span>Fuel types</span></a>
+      <a href="#/masters/transmissions" data-nav="m_transmissions" title="Transmission types"><i data-icon="settings"></i><span>Transmissions</span></a>
+      <a href="#/masters/packages" data-nav="m_packages" title="Service packages"><i data-icon="box"></i><span>Service packages</span></a>
+      <a href="#/masters/campaigns" data-nav="m_campaigns" title="Campaigns"><i data-icon="flag"></i><span>Campaigns</span></a>
+    </nav>
+    <div class="sep" data-right="masters.view"></div>
+    <div class="navlabel" data-right="masters.view">Dealer network</div>
+    <nav class="nav" data-right="masters.view">
+      <a href="#/masters/dealers" data-nav="m_dealers" title="Dealers"><i data-icon="box"></i><span>Dealers</span></a>
+      <a href="#/masters/outlets" data-nav="m_outlets" title="Outlets"><i data-icon="wrench"></i><span>Outlets</span></a>
+      <a href="#/masters/provinces" data-nav="m_provinces" title="States & territories"><i data-icon="flag"></i><span>States</span></a>
+      <a href="#/masters/cities" data-nav="m_cities" title="Cities"><i data-icon="grid"></i><span>Cities</span></a>
+    </nav>
+    <div class="sep" data-right="masters.view"></div>
+    <div class="navlabel" data-right="masters.view">Access control</div>
+    <nav class="nav" data-right="masters.view">
+      <a href="#/masters/roles" data-nav="m_roles" title="Roles"><i data-icon="shield"></i><span>Roles</span></a>
+      <a href="#/masters/rights" data-nav="m_rights" title="Rights"><i data-icon="check"></i><span>Rights</span></a>
+    </nav>
+    <div class="sep"></div>
+    <nav class="nav">
+      <a href="#/api" data-nav="api" title="API reference"><i data-icon="code"></i><span>API reference</span></a>
+      <a href="#/settings" data-nav="settings" title="Settings"><i data-icon="settings"></i><span>Settings</span></a>
+    </nav>
+    <button class="foot" id="meBox" onclick="userMenu()" title="Account"><span class="avatar" id="meAv">…</span><div class="grow" style="text-align:left;min-width:0"><b style="font-size:13px" id="meName">Loading…</b><div class="small muted" id="meRole"></div></div><i data-icon="chevron"></i></button>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumbs"><button class="btn ghost icon hide" id="backBtn" aria-label="Back"><i data-icon="back"></i></button><h1 id="pageTitle">Dashboard</h1></div>
+      <div class="grow"></div>
+      <select class="inp hide hide-sm" id="branchSel" title="Branch you are working at" style="width:auto;max-width:220px;height:38px"></select>
+      <label class="gsearch" title="Find a vehicle"><i data-icon="search"></i><input id="gsearch" placeholder="Reg no, VIN, phone or RO…" autocomplete="off"><kbd>/</kbd></label>
+      <a class="btn primary hide-sm" href="#/walkin" data-right="jobs.create"><i data-icon="plus"></i>New job card</a>
+    </header>
+    <main class="content" id="view" tabindex="-1"></main>
+  </div>
+</div>
+
+<nav class="bottomnav" aria-label="Main navigation">
+  <a href="#/" data-nav="dash" data-right="dashboard.view"><i data-icon="grid"></i>Home</a>
+  <a href="#/jobs" data-nav="jobs" data-right="jobs.view"><i data-icon="clipboard"></i>Job cards</a>
+  <a href="#/walkin" data-nav="walkin" data-right="vehicles.view"><i data-icon="search"></i>Walk-in</a>
+  <a href="#/settings" data-nav="settings"><i data-icon="menu"></i>More</a>
+</nav>
+<button class="fab" data-right="jobs.create" onclick="location.hash='#/walkin'" aria-label="New job card"><i data-icon="plus"></i></button>
+
+<div id="layer"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="/js/core.js"></script>
+<script src="/js/views.js"></script>
+<script src="/js/job.js"></script>
+<script src="/js/wizard.js"></script>
+<script src="/js/masters.js"></script>
+<script src="/js/stock.js"></script>
+<script src="/js/billing.js"></script>
+<script src="/js/purchasing.js"></script>
+<script src="/js/reports.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/floor.js"></script>
+<script src="/js/admin.js"></script>
+<script>App.start();</script>
+</body>
+</html>

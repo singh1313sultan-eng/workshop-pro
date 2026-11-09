@@ -1,0 +1,14 @@
+{
+  "name": "workshop-pro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Workshop management system – job cards, walk-in, estimates, approvals and billing",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test server/api.test.js server/auth.test.js",
+    "backup": "node scripts/backup.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

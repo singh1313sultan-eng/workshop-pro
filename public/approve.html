@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Your quote</title>
+<style>
+  :root{--p:#0f766e;--ink:#0f172a;--muted:#64748b;--line:#e5e7eb;--green:#15803d;--red:#dc2626}
+  *{box-sizing:border-box} body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:#f6f7f9}
+  .wrap{max-width:640px;margin:0 auto;padding:16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  h1{font-size:20px;margin:0 0 4px} .muted{color:var(--muted)} .small{font-size:13px}
+  .shop{display:flex;align-items:center;gap:12px;margin-bottom:12px} .shop img{max-height:44px;max-width:140px}
+  .item{border-top:1px solid var(--line);padding:12px 0;display:grid;grid-template-columns:1fr auto;gap:6px 12px}
+  .item:first-of-type{border-top:0}
+  .seg{display:flex;gap:6px;grid-column:1/-1}
+  .seg button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:#fff;font:inherit;cursor:pointer}
+  .seg button.ok.on{background:var(--green);border-color:var(--green);color:#fff}
+  .seg button.no.on{background:var(--red);border-color:var(--red);color:#fff}
+  .badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#ecfdf5;color:var(--green)}
+  .badge.no{background:#fef2f2;color:var(--red)}
+  input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit}
+  .btn{width:100%;padding:14px;border:0;border-radius:12px;background:var(--p);color:#fff;font:600 16px system-ui;cursor:pointer;margin-top:10px}
+  .btn:disabled{opacity:.6}
+  .tot{display:flex;justify-content:space-between;font-weight:700;font-size:17px;margin-top:8px}
+  table{width:100%;border-collapse:collapse} td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;font-size:14px} .num{text-align:right}
+  .err{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="card">Loading…</div></div>
+<script>
+'use strict';
+const token = location.pathname.split('/').pop();
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = (n) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(Number(n || 0));
+const decisions = {};
+
+function shopHead(s) {
+  return `<div class="shop">${s.logo ? `<img src="${s.logo}" alt="">` : ''}<div><b>${esc(s.name)}</b><div class="small muted">${esc(s.address)} · ${esc(s.phone)}</div><div class="small muted">ABN ${esc(s.abn)}</div></div></div>`;
+}
+function renderQuote(q) {
+  const pending = q.lines.filter((l) => l.status === 'pending');
+  const done = q.lines.filter((l) => l.status !== 'pending');
+  const sum = () => q.lines.reduce((s, l) => s + ((decisions[l.id] || l.status) === 'approved' ? l.priceInc : 0), 0);
+  $('#app').innerHTML = `<div class="card">${shopHead(q.shop)}<h1>Hi ${esc(q.customer)}, here is your quote</h1>
+      <div class="muted">${esc(q.vehicle)} · <b>${esc(q.rego)}</b> · job ${esc(q.jobId)}</div>
+      <div class="small muted">Prices include GST. Valid until ${new Date(q.expiresAt).toLocaleDateString('en-AU')}.</div></div>
+    ${q.closed ? '<div class="card">This job is finished – thank you.</div>' : ''}
+    ${pending.length && !q.closed ? `<div class="card"><b>Waiting for your OK</b>${pending.map((l) => `<div class="item"><div>${esc(l.description)}${l.concern ? `<div class="small muted">For: ${esc(l.concern)}</div>` : ''}</div><b>${money(l.priceInc)}</b>
+        <div class="seg"><button class="ok" data-id="${l.id}" data-d="approved">Approve</button><button class="no" data-id="${l.id}" data-d="declined">Not now</button></div></div>`).join('')}</div>` : ''}
+    ${done.length ? `<div class="card"><b>Already agreed</b>${done.map((l) => `<div class="item"><div>${esc(l.description)}</div><div>${money(l.priceInc)} <span class="badge ${l.status === 'approved' ? '' : 'no'}">${l.status === 'approved' ? 'Approved' : 'Declined'}</span></div></div>`).join('')}</div>` : ''}
+    <div class="card"><div class="tot"><span>Approved total</span><span id="tot">${money(sum())}</span></div>
+      ${pending.length && !q.closed ? `<label class="small muted" style="display:block;margin-top:14px">Type your name to confirm</label><input id="nm" autocomplete="name"><div id="msg" class="small" style="min-height:18px;margin-top:6px"></div><button class="btn" id="go">Send my decision</button>` : ''}
+      <p class="small muted">Questions? Call ${esc(q.shop.phone)}.</p></div>`;
+  document.querySelectorAll('.seg button').forEach((b) => (b.onclick = () => {
+    decisions[b.dataset.id] = b.dataset.d;
+    b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    $('#tot').textContent = money(sum());
+  }));
+  const go = $('#go');
+  if (go) go.onclick = async () => {
+    const list = Object.entries(decisions).map(([lineId, decision]) => ({ lineId: Number(lineId), decision }));
+    if (!list.length) { $('#msg').innerHTML = '<span class="err">Choose Approve or Not now for each item.</span>'; return; }
+    go.disabled = true;
+    const r = await fetch(`/api/public/${token}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: $('#nm').value, decisions: list }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { $('#msg').innerHTML = `<span class="err">${esc(d.error || 'Something went wrong')}</span>`; go.disabled = false; return; }
+    $('#app').innerHTML = `<div class="card">${shopHead(q.shop)}<h1>Thank you!</h1><p>We have your decision and will get on with the work. We will let you know when your ${esc(q.vehicle)} is ready.</p></div>`;
+  };
+}
+function renderInvoice(i) {
+  $('#app').innerHTML = `<div class="card">${shopHead(i.shop)}<h1>${i.kind === 'credit' ? 'Adjustment note' : 'Tax invoice'} ${esc(i.id)}</h1>
+      <div class="small muted">${new Date(i.issuedAt).toLocaleDateString('en-AU')} · ${esc(i.billTo.name)} · ${esc(i.rego)}</div></div>
+    <div class="card"><table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Total</th></tr></thead><tbody>${i.lines.map((l) => `<tr><td>${esc(l.description)}</td><td class="num">${l.qty}</td><td class="num">${money(l.total)}</td></tr>`).join('')}</tbody></table>
+      <div class="small" style="display:flex;justify-content:space-between;margin-top:8px"><span>GST included</span><span>${money(i.gst)}</span></div>
+      <div class="tot"><span>Total</span><span>${money(i.total)}</span></div>
+      <div class="tot" style="font-size:15px"><span>Balance due</span><span>${money(Math.max(0, i.balance ?? i.total))}</span></div>
+      ${i.seller && i.seller.bsb ? `<p class="small">Pay by bank transfer: ${esc(i.seller.accountName)} · BSB ${esc(i.seller.bsb)} · Acc ${esc(i.seller.accountNo)}${i.seller.payId ? ` · PayID ${esc(i.seller.payId)}` : ''} · Reference ${esc(i.id)}</p>` : ''}
+      <button class="btn" onclick="print()">Print / save as PDF</button></div>`;
+}
+(async () => {
+  try {
+    const r = await fetch(`/api/public/${encodeURIComponent(token)}`);
+    const d = await r.json();
+    if (!r.ok) { $('#app').innerHTML = `<div class="card"><h1>Link not available</h1><p>${esc(d.error || 'This link is not valid.')}</p></div>`; return; }
+    document.title = d.kind === 'invoice' ? `Invoice ${d.id}` : 'Your quote';
+    if (d.kind === 'estimate') renderQuote(d); else renderInvoice(d);
+  } catch { $('#app').innerHTML = '<div class="card">Cannot load this page. Please try again.</div>'; }
+})();
+</script>
+</body>
+</html>
