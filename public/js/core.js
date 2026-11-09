@@ -360,3 +360,117 @@ function updateBrandbar() {
   const chip = document.getElementById('bbCur'); if (chip) chip.title = 'All amounts are in ' + cur + (cur === 'AUD' ? ' (Australian dollars), GST inclusive totals shown on invoices' : '');
 }
 document.addEventListener('DOMContentLoaded', updateBrandbar);
+
+/* ---------------- listings: List / Tiles view and pages that fit the screen ----------------
+   Every listing table (table.tbl.rt) gets a bar under it with the page controls and a
+   List / Tiles switch. A page holds as many rows (or tiles) as fit on the screen, so you
+   page through a listing instead of scrolling. The view choice is remembered per device. */
+const LV = { mode: (() => { try { return localStorage.getItem('wpListView') || 'list'; } catch { return 'list'; } })(), pages: {} };
+const lvTables = () => [...document.querySelectorAll('#view table.tbl.rt')];
+const lvKey = (tbl) => location.hash.split('?')[0] + ':' + lvTables().indexOf(tbl);
+function lvSetMode(mode) {
+  LV.mode = mode;
+  try { localStorage.setItem('wpListView', mode); } catch { /* private mode */ }
+  lvTables().forEach((t) => lvPage(t));
+}
+function lvGo(btn, dir) {
+  const tbl = btn.closest('.lv-pager').__tbl;
+  if (!tbl) return;
+  LV.pages[lvKey(tbl)] = (LV.pages[lvKey(tbl)] || 0) + dir;
+  lvPage(tbl);
+  const top = (tbl.closest('.card') || tbl).getBoundingClientRect().top;
+  if (top < 0) window.scrollBy({ top: top - 90 });
+}
+/* how many rows / tiles fit between the top of the listing and the bottom of the screen */
+function lvFit(tbl, rows) {
+  const body = tbl.tBodies[0];
+  const phone = window.innerWidth <= 720;
+  const reserve = 58 + (phone ? 76 : 16); // the page bar, plus the phone's bottom menu
+  const top = Math.max(body.getBoundingClientRect().top + window.scrollY, phone ? 120 : 150);
+  const avail = window.innerHeight - Math.min(top, window.innerHeight * 0.55) - reserve;
+  const sample = rows.slice(0, 6);
+  if (!sample.length) return { size: 10, h: 48, step: 1, min: 10 };
+  if (tbl.classList.contains('tiles') && !phone) {
+    const cols = Math.max(1, getComputedStyle(body).gridTemplateColumns.split(' ').filter(Boolean).length);
+    const h = Math.max(...sample.map((r) => r.getBoundingClientRect().height)) + 12;
+    return { size: cols * Math.max(1, Math.floor(avail / h)), h, step: cols, min: cols };
+  }
+  const h = sample.reduce((s, r) => s + r.getBoundingClientRect().height, 0) / sample.length || 48;
+  const min = 3;
+  return { size: Math.max(min, Math.floor(avail / h)), h, step: 1, min };
+}
+function lvPage(tbl, resetPage, again) {
+  const body = tbl.tBodies[0];
+  if (!body || !tbl.__lv) return;
+  tbl.classList.toggle('tiles', LV.mode === 'tiles');
+  const all = [...body.rows];
+  const rows = all.filter((r) => !r.classList.contains('hide'));
+  // measure with only a few rows showing, so a temporary scrollbar can't change the layout
+  all.forEach((r) => (r.style.display = 'none'));
+  rows.slice(0, 3).forEach((r) => (r.style.display = ''));
+  const fit = lvFit(tbl, rows.slice(0, 3));
+  let size = fit.size, pages, p;
+  const key = lvKey(tbl);
+  const want = resetPage ? 0 : LV.pages[key] || 0;
+  const apply = () => {
+    pages = Math.max(1, Math.ceil(rows.length / size));
+    p = Math.min(Math.max(0, want), pages - 1);
+    rows.forEach((r, i) => (r.style.display = i < p * size || i >= (p + 1) * size ? 'none' : ''));
+  };
+  apply();
+  // measure the real page and drop rows until it fits the screen without scrolling
+  for (let i = 0; i < 6; i++) {
+    const over = document.documentElement.scrollHeight - window.innerHeight;
+    if (over <= 1 || size <= fit.min) break;
+    size = Math.max(fit.min, size - Math.max(fit.step, Math.ceil(over / fit.h / fit.step) * fit.step));
+    apply();
+  }
+  LV.pages[key] = p;
+  // tiles: hiding rows can remove the scrollbar and make room for another column – measure once more
+  if (!again && tbl.classList.contains('tiles') && fit.step > 0) {
+    const cols = getComputedStyle(body).gridTemplateColumns.split(' ').filter(Boolean).length;
+    if (cols !== fit.step) return lvPage(tbl, false, true);
+  }
+  const from = rows.length ? p * size + 1 : 0, to = Math.min(rows.length, (p + 1) * size);
+  const bar = tbl.__lv;
+  bar.innerHTML = `<span class="small muted">${rows.length ? `${from}–${to} of ${rows.length}` : 'Nothing to show'}</span>
+    ${pages > 1 ? `<div class="row lv-pages" style="gap:4px"><button class="btn sm icon" onclick="lvGo(this,-1)" ${p ? '' : 'disabled'} aria-label="Previous page">${ic('back', 'sm')}</button><span class="small" style="min-width:70px;text-align:center">Page ${p + 1} of ${pages}</span><button class="btn sm icon" onclick="lvGo(this,1)" ${p < pages - 1 ? '' : 'disabled'} aria-label="Next page" style="transform:scaleX(-1)">${ic('back', 'sm')}</button></div>` : '<span></span>'}
+    <div class="seg lv-mode" role="group" aria-label="View"><button class="${LV.mode === 'list' ? 'on' : ''}" onclick="lvSetMode('list')" title="List view">${ic('menu', 'sm')}<span>List</span></button><button class="${LV.mode === 'tiles' ? 'on' : ''}" onclick="lvSetMode('tiles')" title="Tile view">${ic('grid', 'sm')}<span>Tiles</span></button></div>`;
+  bar.__tbl = tbl;
+}
+function lvEnhance(tbl) {
+  if (tbl.__lv) return;
+  const host = tbl.closest('.tbl-wrap') || tbl;
+  const bar = document.createElement('div');
+  bar.className = 'lv-pager';
+  host.after(bar);
+  tbl.__lv = bar;
+  lvPage(tbl);
+  lvPage(tbl); // again, now that the page bar has its height
+}
+(function lvWatch() {
+  let queued = new Set(), reset = new Set(), timer = null;
+  const run = () => {
+    timer = null;
+    lvTables().forEach((t) => { if (!t.__lv) lvEnhance(t); });
+    queued.forEach((t) => t.isConnected && t.__lv && lvPage(t, reset.has(t)));
+    queued = new Set(); reset = new Set();
+  };
+  const kick = () => { if (!timer) timer = setTimeout(run, 0); };
+  new MutationObserver((recs) => {
+    for (const r of recs) {
+      if (r.type === 'attributes') { // a filter showed or hid rows
+        if (r.target.tagName === 'TR') { const t = r.target.closest('table.tbl.rt'); if (t) { queued.add(t); reset.add(t); kick(); } }
+        continue;
+      }
+      if (r.target.closest && r.target.closest('.lv-pager')) continue;
+      if ([...r.addedNodes].some((n) => n.nodeType === 1 && (n.matches('table.tbl.rt, tr') || n.querySelector('table.tbl.rt')))) {
+        const t = r.target.closest && r.target.closest('table.tbl.rt');
+        if (t) queued.add(t);
+        kick();
+      }
+    }
+  }).observe(document.getElementById('view') || document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => lvTables().forEach((t) => lvPage(t)), 150); });
+})();

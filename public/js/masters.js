@@ -312,16 +312,16 @@ App.route('/masters/:type', async ({ type }, q) => {
     title: GROUP_TITLE[group] || 'Masters',
     nav: 'm_' + type,
     html: `
-    <div class="tabs" style="margin-bottom:16px">${tabs}</div>
-    <div class="row between wrap" style="gap:12px;margin-bottom:14px">
-      <div style="max-width:720px"><h1>${cfg.title}</h1><div class="muted small" style="margin-top:4px">${cfg.intro}</div></div>
+    <div class="tabs" style="margin-bottom:12px">${tabs}</div>
+    <div class="row between" style="gap:12px;margin-bottom:10px">
+      <div style="min-width:0;flex:1"><h1>${cfg.title}</h1><div class="muted small oneline" style="margin-top:2px" title="${esc(String(cfg.intro).replace(/<[^>]+>/g, ''))}">${cfg.intro}</div></div>
       ${App.can(MANAGE_RIGHT[type]) ? `<button class="btn primary" onclick="masterForm('${type}')">${ic('plus', 'sm')}Add ${cfg.single}</button>` : '<span class="badge b-slate">View only</span>'}
     </div>
     <div class="row wrap" style="gap:10px;margin-bottom:12px">
-      <label class="gsearch" style="display:flex;width:min(340px,100%)">${ic('search', 'sm')}<input id="mq" placeholder="Search ${cfg.title.toLowerCase()}…" value="${esc(st.q)}"></label>
+      <label class="gsearch" style="display:flex;width:min(280px,100%)">${ic('search', 'sm')}<input id="mq" placeholder="Search ${cfg.title.toLowerCase()}…" value="${esc(st.q)}"></label>
       <div class="seg">${[['true', 'Active'], ['false', 'Inactive'], ['', 'All']].map(([v, l]) => `<button class="${st.active === v ? 'on' : ''}" onclick="App.ui.m_${type}.active='${v}';drawMaster('${type}')">${l}</button>`).join('')}</div>
+      <div class="chips chips-1" id="mchips"></div>
     </div>
-    <div class="chips" style="margin-bottom:14px" id="mchips"></div>
     <div class="card" style="overflow:hidden" id="mtable"></div>`,
     after() {
       $('#mq').addEventListener('input', (e) => { st.q = e.target.value; drawMaster(type); });

@@ -446,6 +446,27 @@ html.booting body::before{content:"";position:fixed;inset:var(--brand-h,40px) 0 
 html.booting body::after{content:"";position:fixed;z-index:151;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin .8s linear infinite}
 @media print{html.booting body::before,html.booting body::after{display:none}}
 
+.oneline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chips-1{flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+.chips-1 .chip{flex:none}
+/* listings: page bar + List / Tiles view */
+.lv-pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-top:1px solid var(--line-2);background:#fafbfc;flex-wrap:wrap}
+.lv-pager .lv-mode button{display:inline-flex;align-items:center;gap:6px}
+@media (min-width:721px){
+  .tbl.rt.tiles{display:block}
+  .tbl.rt.tiles thead{display:none}
+  .tbl.rt.tiles tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;padding:12px}
+  .tbl.rt.tiles tr{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .tbl.rt.tiles tr.click:hover{border-color:var(--primary-600);box-shadow:0 4px 14px rgba(15,23,42,.08)}
+  .tbl.rt.tiles td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;padding:3px 0;text-align:right;width:auto}
+  .tbl.rt.tiles td::before{content:attr(data-l);color:var(--muted);font-size:12px;font-weight:550;text-align:left}
+  .tbl.rt.tiles td.lead{display:block;text-align:left;padding-bottom:8px;margin-bottom:4px;border-bottom:1px solid var(--line-2)}
+  .tbl.rt.tiles td.lead::before,.tbl.rt.tiles td:not([data-l])::before{display:none}
+  .tbl.rt.tiles td.hide-sm{display:none}
+}
+@media (max-width:720px){.lv-pager .lv-mode{display:none}}
+@media print{.lv-pager{display:none}.tbl.rt tr:not(.hide){display:table-row!important}}
+
 /* sign-in */
 #loginScreen{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#0f766e 0%,#115e59 45%,#0f172a 100%)}
 .login-card{background:#fff;border-radius:16px;padding:28px;width:min(400px,100%);box-shadow:0 20px 50px rgba(0,0,0,.25)}
@@ -472,6 +493,7 @@ html.booting body::after{content:"";position:fixed;z-index:151;left:50%;top:50%;
 /* CloudMesh brand bar – fixed on every screen */
 :root{--brand-h:40px}
 body{padding-top:var(--brand-h)}
+.shell{min-height:calc(100vh - var(--brand-h))}
 .brandbar{position:fixed;top:0;left:0;right:0;height:var(--brand-h);z-index:250;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;background:#0b1220;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,.08);box-shadow:0 1px 6px rgba(2,6,23,.25)}
 .bb-logo{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;min-width:0}
 .bb-mark{width:30px;height:30px;flex:none}
