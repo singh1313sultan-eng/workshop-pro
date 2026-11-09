@@ -59,9 +59,10 @@ function toggleSideMenu(force) {
   if (b) { b.title = mini ? 'Expand menu' : 'Collapse menu'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-expanded', String(!mini)); }
 }
 function initSideMenu() {
-  let closed = [];
-  try { closed = JSON.parse(localStorage.getItem('wpNavClosed') || '[]'); } catch { closed = []; }
-  document.querySelectorAll('.side .navlabel').forEach((lab) => {
+  // saved choice per section (true = open); by default only the first section is open
+  let state = {};
+  try { state = JSON.parse(localStorage.getItem('wpNavOpen') || '{}') || {}; } catch { state = {}; }
+  document.querySelectorAll('.side .navlabel').forEach((lab, i) => {
     const nav = lab.nextElementSibling;
     if (!nav || !nav.classList.contains('nav')) return;
     const key = lab.textContent.trim();
@@ -78,13 +79,13 @@ function initSideMenu() {
       btn.title = shut ? `Show ${key}` : `Hide ${key}`;
     };
     // a folded section still opens when you are on one of its pages
-    set(closed.includes(key) && !nav.querySelector('a.on'));
+    const open = key in state ? state[key] : i === 0;
+    set(!open && !nav.querySelector('a.on'));
     btn.onclick = () => {
       const shut = !nav.classList.contains('folded');
       set(shut);
-      closed = closed.filter((k) => k !== key);
-      if (shut) closed.push(key);
-      try { localStorage.setItem('wpNavClosed', JSON.stringify(closed)); } catch { /* private mode */ }
+      state[key] = !shut;
+      try { localStorage.setItem('wpNavOpen', JSON.stringify(state)); } catch { /* private mode */ }
     };
     lab.replaceWith(btn);
   });
