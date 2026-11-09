@@ -248,6 +248,7 @@ const App = {
       if (r.status === 401) { showLogin(); return; }
     }
     await this.loadMe();
+    document.documentElement.classList.remove('booting'); // signed in: show the app
     if (typeof App.loadClock === 'function') await App.loadClock();
     if (this.me && this.me.mustChangePassword) { await changePasswordModal(true); location.reload(); return; }
     $('#meBox').title = this.authMode === 'password' ? 'Account' : 'Switch user';

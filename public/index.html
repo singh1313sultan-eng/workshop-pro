@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en-AU">
+<html lang="en-AU" class="booting">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -110,6 +110,6 @@
 <script src="/js/auth.js"></script>
 <script src="/js/floor.js"></script>
 <script src="/js/admin.js"></script>
-<script>App.start();</script>
+<script>App.start().catch((e) => { console.error(e); document.documentElement.classList.remove('booting'); });</script>
 </body>
 </html>

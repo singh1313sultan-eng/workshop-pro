@@ -408,6 +408,12 @@ dl{margin:0}
 @media (max-width:720px){.taxdoc{padding:16px}.td-parties,.td-foot{grid-template-columns:1fr}.td-tbl th:nth-child(3),.td-tbl td:nth-child(3),.td-tbl th:nth-child(4),.td-tbl td:nth-child(4){display:none}}
 .payer-tag{cursor:pointer;border:0}
 
+/* start-up: nothing of the app is shown until we know who is signed in */
+html.booting body > *:not(.brandbar):not(#loginScreen){visibility:hidden}
+html.booting body::before{content:"";position:fixed;inset:var(--brand-h,40px) 0 0 0;z-index:150;background:linear-gradient(135deg,#0f766e 0%,#115e59 45%,#0f172a 100%)}
+html.booting body::after{content:"";position:fixed;z-index:151;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin .8s linear infinite}
+@media print{html.booting body::before,html.booting body::after{display:none}}
+
 /* sign-in */
 #loginScreen{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#0f766e 0%,#115e59 45%,#0f172a 100%)}
 .login-card{background:#fff;border-radius:16px;padding:28px;width:min(400px,100%);box-shadow:0 20px 50px rgba(0,0,0,.25)}
