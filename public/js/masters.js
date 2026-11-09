@@ -119,7 +119,8 @@ const MASTER_UI = {
       ['Name', (r) => `<div class="row" style="gap:10px"><span class="avatar" style="width:32px;height:32px;font-size:12px">${initials(r.name)}</span><div><b>${esc(r.name)}</b><div class="small muted">${esc(r.id)}</div></div></div>`, 'lead'],
       ['Role', (r) => `<span class="badge ${ROLE_STYLE[r.role] || ''}">${esc(r.role)}</span>`],
       ['Mobile', (r) => r.phone ? `<a href="tel:${esc(r.phone)}" onclick="event.stopPropagation()">${esc(fmtPhone(r.phone))}</a>` : '—'],
-      ['Email (sign-in)', (r) => `${esc(r.email || '—')}${App.authMode === 'password' ? (r.hasPassword ? '' : ' <span class="badge b-amber">No password</span>') : ''}`],
+      ['User ID (sign-in)', (r) => `<span class="mono">${esc(r.id)}</span>${App.authMode === 'password' ? (r.hasPassword ? '' : ' <span class="badge b-amber">No password</span>') : ''}`],
+      ['Email', (r) => esc(r.email || '—')],
     ],
     form: [
       { name: 'name', label: 'Full name', required: true, span: 2 },

@@ -9,7 +9,7 @@ const crypto = require('node:crypto');
 
 const PORT = 4398;
 const BASE = `http://localhost:${PORT}/api`;
-const ADMIN_EMAIL = 'sanjay.r@example.com';
+const ADMIN_ID = 'U008';
 // generated per run – never a real password
 const FIRST = 'T' + crypto.randomBytes(6).toString('hex') + '1';
 let proc, tmp;
@@ -42,11 +42,11 @@ test('password mode: sign-in, forced change, lockout, admin reset, sign-out', as
   assert.equal((await call('GET', '/auth/mode')).body.mode, 'password');
 
   // wrong password
-  assert.equal((await call('POST', '/auth/login', { email: ADMIN_EMAIL, password: 'nope-12345' })).status, 401);
-  assert.equal((await call('POST', '/auth/login', { email: 'nobody@example.com', password: FIRST })).status, 401);
+  assert.equal((await call('POST', '/auth/login', { userId: ADMIN_ID, password: 'nope-12345' })).status, 401);
+  assert.equal((await call('POST', '/auth/login', { userId: 'U999', password: FIRST })).status, 401);
 
   // first sign-in: must change the password before doing anything else
-  const login = await call('POST', '/auth/login', { email: ADMIN_EMAIL.toUpperCase(), password: FIRST });
+  const login = await call('POST', '/auth/login', { userId: ADMIN_ID.toLowerCase(), password: FIRST });
   assert.equal(login.status, 200);
   assert.ok(login.raw.includes('HttpOnly') && login.raw.includes('SameSite=Lax'));
   assert.equal(login.body.mustChangePassword, true);
@@ -74,7 +74,7 @@ test('password mode: sign-in, forced change, lockout, admin reset, sign-out', as
   const TEMP = 'A' + crypto.randomBytes(6).toString('hex') + '7';
   assert.equal((await call('POST', '/users/U001/password', { password: 'weak' }, cookie)).status, 400);
   assert.equal((await call('POST', '/users/U001/password', { password: TEMP }, cookie)).status, 200);
-  const adv = await call('POST', '/auth/login', { email: 'arun.kumar@example.com', password: TEMP });
+  const adv = await call('POST', '/auth/login', { userId: 'U001', password: TEMP });
   assert.equal(adv.body.mustChangePassword, true);
   // the advisor cannot reset other people's passwords
   const ADV2 = 'B' + crypto.randomBytes(6).toString('hex') + '3';
@@ -82,11 +82,11 @@ test('password mode: sign-in, forced change, lockout, admin reset, sign-out', as
   assert.equal((await call('POST', '/users/U002/password', { password: TEMP }, advCh.cookie)).status, 403);
 
   // 5 wrong attempts lock the account
-  for (let i = 0; i < 5; i++) await call('POST', '/auth/login', { email: 'arun.kumar@example.com', password: 'wrong-pass-1' });
-  assert.equal((await call('POST', '/auth/login', { email: 'arun.kumar@example.com', password: ADV2 })).status, 423);
+  for (let i = 0; i < 5; i++) await call('POST', '/auth/login', { userId: 'U001', password: 'wrong-pass-1' });
+  assert.equal((await call('POST', '/auth/login', { userId: 'U001', password: ADV2 })).status, 423);
   // an admin reset unlocks it
   await call('POST', '/users/U001/password', { password: TEMP }, cookie);
-  assert.equal((await call('POST', '/auth/login', { email: 'arun.kumar@example.com', password: TEMP })).status, 200);
+  assert.equal((await call('POST', '/auth/login', { userId: 'U001', password: TEMP })).status, 200);
 
   // sign out everywhere ends every session
   const out = await call('POST', '/auth/logout', { everywhere: true }, cookie);

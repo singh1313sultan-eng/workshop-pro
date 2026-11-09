@@ -1,4 +1,4 @@
-// Sign-in: email + password (scrypt), signed session cookie, lockout, forced password change.
+// Sign-in: User ID (e.g. U008) + password (scrypt), signed session cookie, lockout, forced password change.
 //
 // AUTH_MODE=password (default) – every request needs a session (cookie "wp_session" or "Authorization: Bearer").
 // AUTH_MODE=dev                – no passwords; the X-User-Id header picks the user (automated tests / local demos).
@@ -86,9 +86,9 @@ function bootstrap(db, dataDir, isAdmin) {
   if (!process.env.ADMIN_PASSWORD) {
     try {
       fs.mkdirSync(dataDir, { recursive: true });
-      fs.writeFileSync(path.join(dataDir, 'initial-admin-password.txt'), `Workshop Pro – first sign-in\nEmail:    ${admin.email}\nPassword: ${pw}\n\nYou will be asked to choose a new password. Delete this file afterwards.\n`, { mode: 0o600 });
+      fs.writeFileSync(path.join(dataDir, 'initial-admin-password.txt'), `Workshop Pro – first sign-in\nUser ID:  ${admin.id}\nPassword: ${pw}\n\nYou will be asked to choose a new password. Delete this file afterwards.\n`, { mode: 0o600 });
     } catch {}
-    console.log(`\n*** First sign-in: ${admin.email} – one-off password written to ${path.join(dataDir, 'initial-admin-password.txt')} ***\n`);
+    console.log(`\n*** First sign-in: User ID ${admin.id} – one-off password written to ${path.join(dataDir, 'initial-admin-password.txt')} ***\n`);
   }
   return true;
 }
@@ -101,9 +101,9 @@ function register({ route, getDb, save, bad, conflict, str, HttpError, audit, ac
   route('POST', '/api/auth/login', (req, q, p, body, res) => {
     if (MODE() !== 'password') throw bad('Sign-in is switched off (AUTH_MODE=dev)');
     const d = db();
-    const email = str(body.email, 120).toLowerCase();
-    const u = d.users.find((x) => String(x.email || '').toLowerCase() === email);
-    const fail = () => new HttpError(401, 'Email or password is incorrect');
+    const userId = str(body.userId, 40).trim().toUpperCase();
+    const u = userId ? d.users.find((x) => String(x.id).toUpperCase() === userId) : null;
+    const fail = () => new HttpError(401, 'User ID or password is incorrect');
     if (!u || u.active === false || !u.passwordHash) { crypto.scryptSync('x', 'y', 32, { N: 16384 }); throw fail(); } // same timing either way
     if (u.lockedUntil && Date.parse(u.lockedUntil) > Date.now()) throw new HttpError(423, `Too many attempts. Try again after ${new Date(u.lockedUntil).toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' })}, or ask an administrator to reset your password.`);
     if (!verifyPassword(String(body.password || ''), u.passwordHash)) {
@@ -148,7 +148,6 @@ function register({ route, getDb, save, bad, conflict, str, HttpError, audit, ac
     const d = db();
     const u = d.users.find((x) => x.id === p.id);
     if (!u) throw new HttpError(404, 'User not found');
-    if (!u.email) throw bad('Add an email address to this user first – it is their sign-in name');
     const problem = passwordProblem(body.password);
     if (problem) throw bad(problem, { field: 'password' });
     u.passwordHash = hashPassword(body.password);

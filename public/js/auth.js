@@ -7,8 +7,8 @@ function showLogin(message) {
   el.id = 'loginScreen';
   el.innerHTML = `<form class="login-card" id="lgF" autocomplete="on" novalidate>
       <div class="brand" style="margin-bottom:18px"><span class="logo">${ic('wrench')}</span><div><b>Workshop Pro</b><span>${esc(App.meta?.workshop?.name || 'Sign in to continue')}</span></div></div>
-      <h1 style="font-size:22px;margin:0 0 4px">Sign in</h1><p class="muted small" style="margin:0 0 16px">${esc(message || 'Use your work email and password.')}</p>
-      <label class="f"><span>Email</span><input class="inp" id="lgE" type="email" autocomplete="username" required></label>
+      <h1 style="font-size:22px;margin:0 0 4px">Sign in</h1><p class="muted small" style="margin:0 0 16px">${esc(message || 'Use your User ID and password.')}</p>
+      <label class="f"><span>User ID</span><input class="inp mono" id="lgE" type="text" autocomplete="username" autocapitalize="characters" spellcheck="false" placeholder="e.g. U001" required></label>
       <label class="f" style="margin-top:10px"><span>Password</span><input class="inp" id="lgP" type="password" autocomplete="current-password" required></label>
       <div id="lgErr" class="small" style="color:var(--red);min-height:18px;margin-top:8px"></div>
       <button class="btn primary lg" id="lgGo" style="width:100%;justify-content:center">Sign in</button>
@@ -23,7 +23,7 @@ function showLogin(message) {
     const btn = $('#lgGo');
     btn.disabled = true;
     try {
-      const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: $('#lgE').value, password: $('#lgP').value }) });
+      const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: $('#lgE').value, password: $('#lgP').value }) });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { $('#lgErr').textContent = data.error || 'Could not sign in'; btn.disabled = false; $('#lgP').select(); return; }
       el.remove();
@@ -58,7 +58,7 @@ function userMenu() {
   const u = App.me?.user || {};
   openModal({
     title: u.name || 'Account',
-    body: `<div class="lrow" style="padding:0 0 12px"><span class="avatar">${initials(u.name)}</span><div class="grow"><div class="t">${esc(u.name)}</div><div class="small muted">${esc(App.me?.role?.name || '')} · ${esc(u.email || '')}</div></div></div>
+    body: `<div class="lrow" style="padding:0 0 12px"><span class="avatar">${initials(u.name)}</span><div class="grow"><div class="t">${esc(u.name)}</div><div class="small muted">${esc(App.me?.role?.name || '')} · User ID ${esc(u.id)}</div></div></div>
       <div class="stack" style="gap:8px"><button class="btn" id="umPw">${ic('lock', 'sm')}Change password</button><button class="btn" id="umOut">${ic('back', 'sm')}Sign out</button><button class="btn ghost" id="umAll">Sign out on all devices</button></div>`,
     foot: '<button class="btn" onclick="closeModal()">Close</button>',
   });
