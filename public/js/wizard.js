@@ -1,8 +1,6 @@
-/* Workshop Pro – new job card wizard (walk-in check-in), incl. registering a vehicle/customer not on file */
+/* Workshop Pro – new job card on one screen (walk-in check-in), incl. registering a vehicle/customer not on file */
 'use strict';
 
-const WSTEPS = ['Check-in', 'Concerns', 'Work', 'Review & sign'];
-const WSTEPS_NEW = ['Vehicle & customer', ...WSTEPS];
 const NEW_VIN = '__new__';
 const QUICK_CONCERNS = ['Periodic service due', 'Brake noise', 'AC not cooling', 'Vehicle pulls to one side', 'Engine warning light', 'Battery / starting issue', 'Wash & interior cleaning'];
 
@@ -41,79 +39,69 @@ async function wizardView(vin, q) {
   let W = App.ui.wiz;
   if (!W || W.vin !== vin) {
     W = App.ui.wiz = {
-      vin, step: 0, isNew, reg: isNew ? newRegState(q.get('q') || '') : null,
+      vin, isNew, reg: isNew ? newRegState(q.get('q') || '') : null,
       d: { jobType: 'Periodic service', odometer: '', odometerFaulty: false, fuelLevel: 2, drivenBy: 'Owner', lift: true, repeatRepair: false, customerWaiting: false, extras: { wash: true, interiorClean: false }, serviceVan: '', promisedAt: toLocalInput(Date.now() + 8 * 3600000) },
       concerns: [], approval: { signature: null, clientUnavailable: false, remarks: '' },
     };
   }
   const L = App.meta.lookups;
   const opt = (arr, cur) => arr.map((o) => `<option ${o === cur ? 'selected' : ''}>${esc(o)}</option>`).join('');
-  const steps = isNew ? WSTEPS_NEW : WSTEPS;
-  const s = W.step - (isNew ? 1 : 0); // content step: -1 = vehicle & customer
   if (isNew && !W.opts) W.opts = await api('GET', '/vehicles/registration-options');
-  let body = '';
-  if (s === -1) body = regBody(W);
-  if (s === 0) body = `
-    <div class="card"><div class="card-h"><h2>Check-in details</h2></div><div class="card-b grid g2">
+  const n = (k) => `<span class="secno">${k}</span>`;
+  let k = 0;
+
+  // everything on one screen: (new vehicle) → check-in → concerns & work → customer approval
+  const regSection = isNew ? `<div class="wsec"><h2 class="wsec-h">${n(++k)}Customer & vehicle</h2>${regBody(W)}</div>` : '';
+  const checkin = `<div class="wsec"><h2 class="wsec-h">${n(++k)}Check-in</h2>
+    <div class="card"><div class="card-b grid g2">
       <label class="f">Job type<select class="inp" data-k="jobType">${opt(L.jobTypes, W.d.jobType)}</select></label>
       <label class="f">Promised delivery<input class="inp" type="datetime-local" name="promisedAt" data-k="promisedAt" value="${W.d.promisedAt}"></label>
       <label class="f">Odometer (km)<input class="inp" type="number" inputmode="numeric" name="odometer" data-k="odometer" value="${esc(W.d.odometer)}" placeholder="Current reading" ${W.d.odometerFaulty ? 'disabled' : ''}></label>
       <label class="f">Driven in by<select class="inp" data-k="drivenBy">${opt(L.drivenBy, W.d.drivenBy)}</select></label>
       <label class="f" style="grid-column:1/-1">Fuel level<div class="fuel" id="wFuel">${FUEL.map((f, i) => `<button type="button" class="${W.d.fuelLevel === i ? 'on' : ''}" data-v="${i}">${f}</button>`).join('')}</div></label>
-      <div class="stack" style="grid-column:1/-1;gap:10px">
+      <div class="checks" style="grid-column:1/-1">
         <label class="check"><input type="checkbox" data-k="odometerFaulty" ${W.d.odometerFaulty ? 'checked' : ''}>Odometer not working</label>
-        <label class="check"><input type="checkbox" data-k="customerWaiting" ${W.d.customerWaiting ? 'checked' : ''}>Customer will wait at the workshop</label>
+        <label class="check"><input type="checkbox" data-k="customerWaiting" ${W.d.customerWaiting ? 'checked' : ''}>Customer will wait</label>
         <label class="check"><input type="checkbox" data-k="lift" ${W.d.lift ? 'checked' : ''}>Needs a lift</label>
-        <label class="check"><input type="checkbox" data-k="repeatRepair" ${W.d.repeatRepair ? 'checked' : ''}>Repeat repair (back for the same issue)</label>
+        <label class="check"><input type="checkbox" data-k="repeatRepair" ${W.d.repeatRepair ? 'checked' : ''}>Repeat repair</label>
         <label class="check"><input type="checkbox" data-x="wash" ${W.d.extras.wash ? 'checked' : ''}>Exterior wash</label>
         <label class="check"><input type="checkbox" data-x="interiorClean" ${W.d.extras.interiorClean ? 'checked' : ''}>Interior cleaning</label>
-      </div></div></div>`;
-  if (s === 1) body = `
-    <div class="card"><div class="card-h"><h2>What does the customer report?</h2></div><div class="card-b">
+      </div></div></div></div>`;
+  const concerns = `<div class="wsec" id="wConcerns"><h2 class="wsec-h">${n(++k)}Concerns & work</h2>
+    <div class="card"><div class="card-b">
       <form id="cAdd" class="stack" style="gap:10px">
         <div class="seg" id="wKind"><button type="button" class="on" data-k="voice">Customer concern</button><button type="button" data-k="advice">Advisor recommendation</button></div>
         <div class="row wrap" style="gap:8px"><input class="inp" id="wcText" placeholder="Describe the concern in the customer's words" style="flex:2;min-width:220px"><input class="inp" id="wcObs" placeholder="Your observation (optional)" style="flex:2;min-width:200px"><button class="btn primary">${ic('plus', 'sm')}Add</button></div>
         <div class="chips">${QUICK_CONCERNS.map((q) => `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
-      </form></div>
-      ${W.concerns.length ? W.concerns.map((c, i) => `<div class="lrow"><span class="badge ${c.kind === 'voice' ? 'b-blue' : 'b-violet'}">${c.kind === 'voice' ? 'Customer' : 'Advisor'}</span><div class="grow"><div class="t" style="white-space:normal">${esc(c.text)}</div>${c.observation ? `<div class="small muted">Observation: ${esc(c.observation)}</div>` : ''}</div><button class="btn ghost sm icon" title="Remove" onclick="App.ui.wiz.concerns.splice(${i},1);App.refresh()">${ic('trash', 'sm')}</button></div>`).join('') : `<div class="empty small" style="border-top:1px solid var(--line-2)">No concerns yet. Add at least one to continue.</div>`}
+      </form></div></div>
+    ${W.concerns.length ? W.concerns.map((c, i) => `<div class="concern"><div class="concern-h" style="flex-wrap:wrap"><span class="badge ${c.kind === 'voice' ? 'b-blue' : 'b-violet'}">${c.kind === 'voice' ? 'Customer' : 'Advisor'}</span><div class="grow" style="min-width:180px"><b>${esc(c.text)}</b>${c.observation ? `<div class="small muted">Observation: ${esc(c.observation)}</div>` : ''}</div><b>${money(concernTotal(c))}</b>
+        <div class="approve" title="Customer decision"><button class="ap ${c.decision === 'approved' ? 'on' : ''}" onclick="wizDecide(${i},'approved')">Approve</button><button class="pd ${c.decision === 'pending' ? 'on' : ''}" onclick="wizDecide(${i},'pending')">Later</button><button class="dc ${c.decision === 'declined' ? 'on' : ''}" onclick="wizDecide(${i},'declined')">Decline</button></div>
+        <button class="btn sm" onclick="wizAddWork(${i})">${ic('plus', 'sm')}Add work</button><button class="btn ghost sm icon" title="Remove concern" onclick="App.ui.wiz.concerns.splice(${i},1);App.refresh()">${ic('trash', 'sm')}</button></div>
+      <div class="lines">${c.items.length ? c.items.map((it, j) => `<div class="lrow" style="padding:10px 16px"><span class="badge ${it.packageCode ? 'b-teal' : 'b-slate'}">${it.packageCode ? 'Package' : it.kind === 'part' ? 'Part' : 'Labour'}</span><div class="grow"><div class="t" style="white-space:normal;font-weight:500">${esc(wizItemName(it))}</div></div><b>${money(wizItemPrice(it))}</b><button class="btn ghost sm icon" title="Remove" onclick="App.ui.wiz.concerns[${i}].items.splice(${j},1);App.refresh()">${ic('trash', 'sm')}</button></div>`).join('') : '<div class="empty small" style="padding:14px">No work yet – add a package, parts or labour, or leave it for diagnosis.</div>'}</div></div>`).join('') : `<div class="empty small" id="wNoConcern">No concerns yet. Add at least one.</div>`}
     </div>`;
-  if (s === 2) body = `<div class="split"><div>
-    ${W.concerns.map((c, i) => `<div class="concern"><div class="concern-h"><span class="badge ${c.kind === 'voice' ? 'b-blue' : 'b-violet'}">${c.kind === 'voice' ? 'Customer' : 'Advisor'}</span><div class="grow"><b>${esc(c.text)}</b></div><b>${money(concernTotal(c))}</b><button class="btn sm" onclick="wizAddWork(${i})">${ic('plus', 'sm')}Add work</button></div>
-      <div class="lines">${c.items.length ? c.items.map((it, k) => `<div class="lrow" style="padding:10px 16px"><span class="badge ${it.packageCode ? 'b-teal' : 'b-slate'}">${it.packageCode ? 'Package' : it.kind === 'part' ? 'Part' : 'Labour'}</span><div class="grow"><div class="t" style="white-space:normal;font-weight:500">${esc(wizItemName(it))}</div></div><b>${money(wizItemPrice(it))}</b><button class="btn ghost sm icon" title="Remove" onclick="App.ui.wiz.concerns[${i}].items.splice(${k},1);App.refresh()">${ic('trash', 'sm')}</button></div>`).join('') : '<div class="empty small" style="padding:14px">No work yet – add a package, parts or labour. You can also leave it for diagnosis.</div>'}</div></div>`).join('')}
-    </div><div class="card" style="position:sticky;top:80px"><div class="card-h"><h3>Estimate</h3></div><div class="card-b">${wizTotals(W)}</div></div></div>`;
-  if (s === 3) {
-    const pre = W.concerns.reduce((s, c) => s + concernTotal(c), 0);
-    body = `<div class="split"><div class="stack">
-      <div class="card"><div class="card-h"><h2>Customer decision</h2><span class="small muted">per concern</span></div>
-        ${W.concerns.map((c, i) => `<div class="lrow" style="flex-wrap:wrap"><div class="grow" style="min-width:200px"><div class="t" style="white-space:normal">${esc(c.text)}</div><div class="small muted">${c.items.length} item(s) · ${money(gst(concernTotal(c)))} incl. GST</div></div>
-          <div class="approve"><button class="ap ${c.decision === 'approved' ? 'on' : ''}" onclick="wizDecide(${i},'approved')">Approve</button><button class="pd ${c.decision === 'pending' ? 'on' : ''}" onclick="wizDecide(${i},'pending')">Later</button><button class="dc ${c.decision === 'declined' ? 'on' : ''}" onclick="wizDecide(${i},'declined')">Decline</button></div></div>`).join('')}
-      </div>
-      <div class="card"><div class="card-h"><h2>Customer signature</h2><button class="btn sm" id="sigClear">${ic('refresh', 'sm')}Clear</button></div><div class="card-b">
-        <canvas class="sig" id="wSig" aria-label="Signature pad"></canvas>
-        <label class="check" style="margin-top:12px"><input type="checkbox" id="wUnavail" ${W.approval.clientUnavailable ? 'checked' : ''}>Customer not present – approval taken over the phone</label>
-        <label class="f" style="margin-top:12px">Remarks<textarea class="inp" id="wRem" placeholder="Anything agreed with the customer">${esc(W.approval.remarks)}</textarea></label>
-      </div></div></div>
-      <div class="stack" style="position:sticky;top:80px">
-        <div class="card"><div class="card-h"><h3>Summary</h3></div><div class="card-b"><dl class="kv" style="grid-template-columns:1fr 1fr">
-          <div><dt>Job type</dt><dd>${esc(W.d.jobType)}</dd></div><div><dt>Promised</dt><dd>${fmtDT(W.d.promisedAt)}</dd></div>
-          <div><dt>Odometer</dt><dd>${W.d.odometerFaulty ? 'Not working' : Number(W.d.odometer).toLocaleString('en-AU') + ' km'}</dd></div><div><dt>Fuel</dt><dd>${FUEL[W.d.fuelLevel]}</dd></div></dl>
-          <div style="margin-top:16px">${wizTotals(W)}</div>
-          <div class="totals" style="margin-top:10px"><div class="r"><span>Approved now (incl. GST)</span><b style="color:var(--green)">${money(gst(W.concerns.filter((c) => c.decision === 'approved').reduce((s, c) => s + concernTotal(c), 0)))}</b></div></div>
-          ${pre === 0 ? `<div class="alert info" style="margin-top:12px">${ic('info')}<div>No work priced yet. The job card will be created for diagnosis and you can add the estimate later.</div></div>` : ''}
-        </div></div></div></div>`;
-  }
-  const last = steps.length - 1;
+  const approval = `<div class="wsec"><h2 class="wsec-h">${n(++k)}Customer approval</h2>
+    <div class="card"><div class="card-h"><h3>Customer signature</h3><button class="btn sm" id="sigClear" type="button">${ic('refresh', 'sm')}Clear</button></div><div class="card-b">
+      <canvas class="sig" id="wSig" aria-label="Signature pad"></canvas>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="wUnavail" ${W.approval.clientUnavailable ? 'checked' : ''}>Customer not present – approval taken over the phone</label>
+      <label class="f" style="margin-top:12px">Remarks<textarea class="inp" id="wRem" placeholder="Anything agreed with the customer">${esc(W.approval.remarks)}</textarea></label>
+    </div></div></div>`;
+  const approvedNow = W.concerns.filter((c) => c.decision === 'approved').reduce((s, c) => s + concernTotal(c), 0);
+  const summary = `<div class="stack wsum">
+    <div class="card"><div class="card-h"><h3>Estimate</h3><span class="small muted">${W.concerns.length} concern(s)</span></div><div class="card-b">${wizTotals(W)}
+      <div class="totals" style="margin-top:10px"><div class="r"><span>Approved now (incl. GST)</span><b style="color:var(--green)">${money(gst(approvedNow))}</b></div></div>
+      <button class="btn primary lg hide-sm" id="wCreate2" style="width:100%;justify-content:center;margin-top:14px">${ic('check', 'sm')}Create job card</button>
+    </div></div></div>`;
   const cancelTo = isNew ? '#/walkin' : `#/vehicles/${vin}`;
   return {
     title: isNew ? 'New vehicle & job card' : 'New job card',
     nav: 'walkin',
     back: cancelTo,
     html: `
-    ${isNew ? (s >= 0 ? newVehicleHeader(W) : '') : `<div class="card" style="margin-bottom:16px"><div class="card-b row wrap" style="gap:14px"><span class="vicon" style="background:${esc(v.hex)}22;color:${esc(v.hex)}">${ic('car')}</span><div style="flex:1;min-width:200px"><b style="font-size:16px">${esc(v.reg)}</b> <span class="muted">${esc(v.model)} ${esc(v.variant)}</span><div class="small muted">${esc(v.owner.name)} · ${esc(fmtPhone(v.owner.phone))} · VIN ${esc(v.vin)}</div></div>${v.alerts.map((a) => `<span class="badge ${a.level === 'critical' ? 'b-red' : 'b-amber'}">${ic('alert', 'sm')} ${esc(a.text)}</span>`).join('')}</div></div>`}
-    <div class="wizard-steps">${steps.map((t, i) => `<div class="wstep ${i === W.step ? 'on' : i < W.step ? 'done' : ''}"><b>${i < W.step ? '✓' : i + 1}</b>${t}</div>`).join('')}</div>
-    ${body}
-    <div class="wfoot"><button class="btn" onclick="${W.step ? 'wizGo(-1)' : `App.ui.wiz=null;App.go('${cancelTo}')`}">${W.step ? 'Back' : 'Cancel'}</button><div style="flex:1"></div>
-      ${W.step < last ? `<button class="btn primary lg" id="wNext" onclick="wizGo(1)">Continue ${ic('arrow', 'sm')}</button>` : `<button class="btn primary lg" id="wCreate">${ic('check', 'sm')}Create job card</button>`}</div>`,
+    ${isNew ? '' : `<div class="card" style="margin-bottom:16px"><div class="card-b row wrap" style="gap:14px"><span class="vicon" style="background:${esc(v.hex)}22;color:${esc(v.hex)}">${ic('car')}</span><div style="flex:1;min-width:200px"><b style="font-size:16px">${esc(v.reg)}</b> <span class="muted">${esc(v.model)} ${esc(v.variant)}</span><div class="small muted">${esc(v.owner.name)} · ${esc(fmtPhone(v.owner.phone))} · VIN ${esc(v.vin)}</div></div>${v.alerts.map((a) => `<span class="badge ${a.level === 'critical' ? 'b-red' : 'b-amber'}">${ic('alert', 'sm')} ${esc(a.text)}</span>`).join('')}</div></div>`}
+    <div class="split"><div class="stack" style="gap:20px">${regSection}${checkin}${concerns}${approval}</div>${summary}</div>
+    <div class="wfoot"><button class="btn" onclick="App.ui.wiz=null;App.go('${cancelTo}')">Cancel</button><div style="flex:1"></div>
+      <span class="small muted hide-sm">Estimate ${money(gst(W.concerns.reduce((s, c) => s + concernTotal(c), 0)))} incl. GST</span>
+      <button class="btn primary lg" id="wCreate">${ic('check', 'sm')}Create job card</button></div>`,
     after: () => wizBind(W),
   };
 }
@@ -128,20 +116,37 @@ function wizAddWork(i) {
   const c = App.ui.wiz.concerns[i];
   addWorkPicker({ title: 'Add work · ' + esc(c.text), onPick: (item) => { c.items.push(item); toast('Added: ' + wizItemName(item)); App.refresh(); } });
 }
-async function wizGo(dir) {
+/* check the whole form, top to bottom; show the first problem */
+async function wizValidate(W) {
+  const bad = (msg, el) => { toast(msg, 'err'); if (el) { el.classList.add('err'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus({ preventScroll: true }); } return false; };
+  if (W.isNew && !(await regCheck(W))) return false;
+  if (!W.d.odometerFaulty && !(Number(W.d.odometer) > 0)) return bad('Enter the odometer reading (or tick "Odometer not working")', $('[name=odometer]'));
+  if (!W.d.promisedAt || new Date(W.d.promisedAt) < new Date()) return bad('Promised delivery must be in the future', $('[name=promisedAt]'));
+  if (!W.concerns.length) return bad('Add at least one concern', $('#wcText'));
+  if (!W.approval.signature && !W.approval.clientUnavailable) { toast('Get the customer to sign, or tick "Customer not present"', 'err'); $('#wSig')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return false; }
+  return true;
+}
+async function wizCreate(btn) {
   const W = App.ui.wiz;
-  const s = W.step - (W.isNew ? 1 : 0);
-  if (dir > 0 && s === -1 && !(await regCheck(W))) return;
-  if (dir > 0 && s === 0) {
-    if (!W.d.odometerFaulty && !(Number(W.d.odometer) > 0)) { toast('Enter the odometer reading (or tick "Odometer not working")', 'err'); $('[name=odometer]')?.classList.add('err'); return; }
-    if (!W.d.promisedAt || new Date(W.d.promisedAt) < new Date()) { toast('Promised delivery must be in the future', 'err'); $('[name=promisedAt]')?.classList.add('err'); return; }
+  btn.disabled = true;
+  try { if (!(await wizValidate(W))) return; } finally { if (btn.isConnected) btn.disabled = false; }
+  const body = Object.assign({}, W.d, W.isNew ? regPayload(W) : { vin: W.vin }, {
+    odometer: Number(W.d.odometer) || 0,
+    promisedAt: new Date(W.d.promisedAt).toISOString(),
+    concerns: W.concerns.map((cn) => ({ kind: cn.kind, text: cn.text, observation: cn.observation, decision: cn.decision, packages: cn.items.filter((x) => x.packageCode).map((x) => x.packageCode), lines: cn.items.filter((x) => !x.packageCode) })),
+    approval: W.approval,
+  });
+  const job = await act(btn, () => api('POST', '/jobcards', body));
+  if (job) {
+    if (W.isNew) toast(`Vehicle ${W.reg.v.reg.toUpperCase()} registered${W.reg.mode === 'new' ? ' with a new customer ID' : ''}`);
+    App.ui.wiz = null;
+    App.updateBadges();
+    toast(`Job card ${job.id} created`);
+    App.go('#/jobs/' + job.id);
   }
-  if (dir > 0 && s === 1 && !W.concerns.length) { toast('Add at least one concern', 'err'); return; }
-  W.step = Math.max(0, Math.min(W.isNew ? 4 : 3, W.step + dir));
-  App.refresh().then(() => window.scrollTo(0, 0));
 }
 function wizBind(W) {
-  /* step 0 inputs write straight into the wizard state */
+  /* inputs write straight into the form state */
   $$('[data-k]').forEach((el) => {
     const k = el.dataset.k;
     el.addEventListener(el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input', () => {
@@ -153,7 +158,7 @@ function wizBind(W) {
   $$('[data-x]').forEach((el) => el.addEventListener('change', () => (W.d.extras[el.dataset.x] = el.checked)));
   $$('#wFuel button').forEach((b) => b.addEventListener('click', () => (W.d.fuelLevel = Number(b.dataset.v))));
   if ($('#regForm')) regBind(W);
-  /* step 1 */
+  /* concerns */
   const f = $('#cAdd');
   if (f) {
     $$('#wKind button').forEach((b) => (b.onclick = () => $$('#wKind button').forEach((x) => x.classList.toggle('on', x === b))));
@@ -165,7 +170,7 @@ function wizBind(W) {
     f.onsubmit = (e) => { e.preventDefault(); add($('#wcText').value); };
     $$('[data-q]').forEach((b) => (b.onclick = () => add(b.dataset.q)));
   }
-  /* step 3: signature pad + create */
+  /* signature pad */
   const c = $('#wSig');
   if (c) {
     const r = c.getBoundingClientRect();
@@ -182,24 +187,8 @@ function wizBind(W) {
     $('#sigClear').onclick = () => { W.approval.signature = null; g.clearRect(0, 0, r.width, r.height); blank = true; hint(); };
     $('#wUnavail').onchange = (e) => (W.approval.clientUnavailable = e.target.checked);
     $('#wRem').oninput = (e) => (W.approval.remarks = e.target.value);
-    $('#wCreate').onclick = async (e) => {
-      if (!W.approval.signature && !W.approval.clientUnavailable) { toast('Get the customer to sign, or tick "Customer not present"', 'err'); return; }
-      const body = Object.assign({}, W.d, W.isNew ? regPayload(W) : { vin: W.vin }, {
-        odometer: Number(W.d.odometer) || 0,
-        promisedAt: new Date(W.d.promisedAt).toISOString(),
-        concerns: W.concerns.map((cn) => ({ kind: cn.kind, text: cn.text, observation: cn.observation, decision: cn.decision, packages: cn.items.filter((x) => x.packageCode).map((x) => x.packageCode), lines: cn.items.filter((x) => !x.packageCode) })),
-        approval: W.approval,
-      });
-      const job = await act(e.currentTarget, () => api('POST', '/jobcards', body));
-      if (job) {
-        if (W.isNew) toast(`Vehicle ${W.reg.v.reg.toUpperCase()} registered${W.reg.mode === 'new' ? ' with a new customer ID' : ''}`);
-        App.ui.wiz = null;
-        App.updateBadges();
-        toast(`Job card ${job.id} created`);
-        App.go('#/jobs/' + job.id);
-      }
-    };
   }
+  $$('#wCreate, #wCreate2').forEach((b) => (b.onclick = () => wizCreate(b)));
 }
 
 /* ================= vehicle & customer registration (first wizard step for a vehicle not on file) ================= */

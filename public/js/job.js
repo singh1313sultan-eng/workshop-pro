@@ -20,7 +20,8 @@ App.route('/jobs/:id', async ({ id }, q) => {
   const pending = J.lines.filter((l) => l.status === 'pending').length;
   const stageIdx = J.stages.findIndex((x) => x.key === J.stage);
   const t = (k, l, n, cls = '') => `<button class="${tab === k ? 'on' : ''}" onclick="App.go('#/jobs/${J.id}?tab=${k}')">${l}${n ? `<span class="n ${cls}">${n}</span>` : ''}</button>`;
-  const bodies = { overview: tabOverview, work: tabWork, inspection: tabInspection, billing: tabBilling, feedback: tabFeedback, files: () => tabFiles(), activity: tabActivity };
+  const notIssued = toIssue().length + labourToIssue().length;
+  const bodies = { overview: tabOverview, work: tabWork, issue: tabIssue, inspection: tabInspection, billing: tabBilling, feedback: tabFeedback, files: () => tabFiles(), activity: tabActivity };
   return {
     title: J.id,
     nav: 'jobs',
@@ -58,7 +59,7 @@ App.route('/jobs/:id', async ({ id }, q) => {
     ${v.alerts.map((al) => `<div class="alert ${al.level === 'critical' ? 'crit' : 'warn'}" style="margin-top:12px">${ic('alert')}<div>${esc(al.text)}</div></div>`).join('')}
 
     <div class="tabs no-print" style="margin:16px 0">
-      ${t('overview', 'Overview')}${t('work', 'Work & estimate', pending || '', 'b-amber')}${t('inspection', 'Inspection', countIssues() || '')}${t('billing', J.claim ? 'Billing & claim' : 'Billing')}${t('feedback', 'Feedback')}${t('files', 'Photos & files')}${t('activity', 'Activity', J.activity.length)}
+      ${t('overview', 'Overview')}${t('work', 'Work & estimate', pending || '', 'b-amber')}${t('issue', 'Parts & labour issue', notIssued || '', 'b-amber')}${t('inspection', 'Inspection', countIssues() || '')}${t('billing', J.claim ? 'Billing & claim' : 'Billing')}${t('feedback', 'Feedback')}${t('files', 'Photos & files')}${t('activity', 'Activity', J.activity.length)}
     </div>
     <div id="jobTab">${(bodies[tab] || tabOverview)()}</div>`,
     after: tab === 'inspection' ? bindInspection : undefined,
@@ -141,7 +142,7 @@ function tabWork() {
         <button class="pd ${l.status === 'pending' ? 'on' : ''}" ${closed || !App.can('jobs.approve') ? 'disabled' : ''} onclick="setLine(${l.id},'pending')">Pending</button>
         <button class="ap ${l.status === 'approved' ? 'on' : ''}" ${closed || !App.can('jobs.approve') ? 'disabled' : ''} onclick="setLine(${l.id},'approved')">Approve</button>
         <button class="dc ${l.status === 'declined' ? 'on' : ''}" ${closed || !App.can('jobs.approve') ? 'disabled' : ''} onclick="setLine(${l.id},'declined')">Decline</button></div></div>
-      <div class="x row" style="gap:4px">${closed ? '' : `${issueButtons(l)}
+      <div class="x row" style="gap:4px">${closed ? '' : `
         ${l.kind === 'part' && App.can('jobs.estimate') ? `<button class="btn ghost sm icon" title="Replace part" onclick="replaceModal(${l.id})">${ic('swap', 'sm')}</button>
         <button class="btn ghost sm icon" title="${l.blocked ? 'Release stock' : 'Reserve stock'}" onclick="jobCall(this,'PATCH','/lines/${l.id}',{blocked:${!l.blocked}},'${l.blocked ? 'Stock released' : 'Stock reserved'}')">${ic(l.blocked ? 'lock' : 'unlock', 'sm')}</button>` : ''}
         ${App.can('jobs.estimate') ? `<button class="btn ghost sm icon" title="Remove line" onclick="removeLine(${l.id})">${ic('trash', 'sm')}</button>` : ''}`}</div>
@@ -151,7 +152,7 @@ function tabWork() {
     <div>
       <div class="row between wrap" style="margin-bottom:12px;gap:8px">
         <div class="muted small">Group work under each customer concern. Approve or decline each line with the customer.</div>
-        ${closed ? '' : `<div class="row wrap" style="gap:8px">${toIssue().length && App.can('stock.issue') ? `<button class="btn sm" onclick="issueAll(this)">${ic('box', 'sm')}Issue approved parts (${toIssue().length})</button>` : ''}${J.lines.some((l) => l.status === 'pending') && App.can('jobs.approve') ? `<button class="btn sm" onclick="approveAll(this)">${ic('check', 'sm')}Approve all pending</button>` : ''}<button class="btn sm primary" onclick="concernModal()" ${App.can('jobs.edit') ? '' : 'hidden'}>${ic('plus', 'sm')}Add concern</button></div>`}
+        ${closed ? '' : `<div class="row wrap" style="gap:8px">${toIssue().length + labourToIssue().length ? `<a class="btn sm" href="#/jobs/${J.id}?tab=issue">${ic('box', 'sm')}Issue parts & labour (${toIssue().length + labourToIssue().length})</a>` : ''}${J.lines.some((l) => l.status === 'pending') && App.can('jobs.approve') ? `<button class="btn sm" onclick="approveAll(this)">${ic('check', 'sm')}Approve all pending</button>` : ''}<button class="btn sm primary" onclick="concernModal()" ${App.can('jobs.edit') ? '' : 'hidden'}>${ic('plus', 'sm')}Add concern</button></div>`}
       </div>
       ${groups.map(({ c, lines }) => `<div class="concern">
         <div class="concern-h">
@@ -173,19 +174,56 @@ function totalsHtml(t) {
     ${t.campaignDiscount ? `<div class="r"><span>Campaign discount</span><b style="color:var(--green)">− ${money(t.campaignDiscount)}</b></div>` : ''}
     <div class="r"><span>GST ${t.gstPct}%</span><b>${money(t.tax)}</b></div><div class="r t"><span style="color:var(--ink)">Total</span><span>${money(t.total)}</span></div></div>`;
 }
-/* ---- parts issue from stock (FIFO) ---- */
+/* ---- issue: parts from stock (FIFO), labour to the workshop ---- */
 const toIssue = () => J.lines.filter((l) => l.kind === 'part' && l.status === 'approved' && (l.issuedQty || 0) < l.qty);
+const labourToIssue = () => J.lines.filter((l) => l.kind === 'labour' && l.status === 'approved' && !l.labourIssue);
 function issueBadge(l) {
-  if (l.kind !== 'part' || l.status !== 'approved') return '';
+  if (l.status !== 'approved') return '';
+  if (l.kind === 'labour') return l.labourIssue ? ` · <span class="badge b-green" style="height:18px">Issued${l.labourIssue.to ? ' to ' + esc(l.labourIssue.to) : ''}</span>` : ' · <span class="badge b-amber" style="height:18px">Not issued</span>';
   const iq = l.issuedQty || 0;
   if (iq >= l.qty) return ` · <span class="badge b-green" style="height:18px" title="${l.issueLegacy ? 'Issued before stock tracking' : 'FIFO cost ' + money(l.issueCost || 0)}">Issued${l.issueCost ? ' · cost ' + money(l.issueCost) : ''}</span>`;
   return ` · <span class="badge b-amber" style="height:18px">${iq ? `Issued ${iq} of ${l.qty}` : 'Not issued'}</span>`;
 }
-function issueButtons(l) {
-  if (l.kind !== 'part' || !App.can('stock.issue')) return '';
+function issueStatus(l) {
+  if (l.kind === 'labour') return l.labourIssue ? '<span class="badge b-green">Issued</span>' : '<span class="badge b-amber">Not issued</span>';
   const iq = l.issuedQty || 0;
-  return (l.status === 'approved' && iq < l.qty ? `<button class="btn ghost sm icon" title="Issue from stock (FIFO)" onclick="jobCall(this,'POST','/lines/${l.id}/issue',{},'Issued from stock')">${ic('box', 'sm')}</button>` : '')
-    + (iq > 0 ? `<button class="btn ghost sm icon" title="Return to stock" onclick="returnModal(${l.id})">${ic('refresh', 'sm')}</button>` : '');
+  return iq >= l.qty ? '<span class="badge b-green">Issued</span>' : iq ? `<span class="badge b-amber">Part issued · ${iq} of ${l.qty}</span>` : '<span class="badge b-amber">Not issued</span>';
+}
+function tabIssue() {
+  const closed = J.status === 'closed';
+  const approved = J.lines.filter((l) => l.status === 'approved');
+  const parts = approved.filter((l) => l.kind === 'part');
+  const labour = approved.filter((l) => l.kind === 'labour');
+  const waiting = J.lines.filter((l) => l.status === 'pending').length;
+  const techs = (App.meta.users || []).filter((u) => u.active !== false && /technician/i.test(u.role || ''));
+  const canParts = App.can('stock.issue') && !closed, canLab = App.can('jobs.edit') && !closed;
+  const techSel = (l) => `<select class="inp" id="tech${l.id}" style="height:34px;min-width:140px" aria-label="Technician"><option value="">${J.technician ? 'Job technician (' + esc(J.technician) + ')' : 'No technician'}</option>${techs.map((u) => `<option>${esc(u.name)}</option>`).join('')}</select>`;
+  const partRow = (l) => {
+    const iq = l.issuedQty || 0;
+    return `<tr><td><b>${esc(l.description)}</b><div class="small muted mono">${esc(l.code)}</div></td>
+      <td class="right">${l.qty}</td><td class="right">${iq}</td>
+      <td>${l.stock == null ? '—' : l.stock > 0 ? `<span style="color:var(--green)">${l.stock}</span>` : '<span style="color:var(--red)">0</span>'}</td>
+      <td>${issueStatus(l)}${iq && l.issueCost ? `<div class="small muted">FIFO cost ${money(l.issueCost)}</div>` : ''}</td>
+      <td class="right"><div class="row" style="gap:6px;justify-content:flex-end">${canParts && iq < l.qty ? `<button class="btn sm primary" onclick="jobCall(this,'POST','/lines/${l.id}/issue',{},'Issued from stock')">${ic('box', 'sm')}Issue</button>` : ''}${canParts && iq > 0 ? `<button class="btn sm" onclick="returnModal(${l.id})">${ic('refresh', 'sm')}Return</button>` : ''}</div></td></tr>`;
+  };
+  const labRow = (l) => `<tr><td><b>${esc(l.description)}</b><div class="small muted mono">${esc(l.code)}</div></td>
+      <td>${issueStatus(l)}</td>
+      <td>${l.labourIssue ? `${esc(l.labourIssue.to || '—')}<div class="small muted">${fmtDT(l.labourIssue.at)} · by ${esc(l.labourIssue.by)}</div>` : canLab ? techSel(l) : '—'}</td>
+      <td class="right"><div class="row" style="gap:6px;justify-content:flex-end">${canLab ? (l.labourIssue ? `<button class="btn sm" onclick="jobCall(this,'POST','/lines/${l.id}/unissue-labour',{},'Set back to not issued')">Set to not issued</button>` : `<button class="btn sm primary" onclick="jobCall(this,'POST','/lines/${l.id}/issue-labour',{technician:$('#tech${l.id}').value},'Labour issued')">${ic('wrench', 'sm')}Issue</button>`) : ''}</div></td></tr>`;
+  const head = (title, n, done, btn) => `<div class="card-h"><h2>${title}</h2><span class="small muted">${done} of ${n} issued</span><div class="grow"></div>${btn}</div>`;
+  return `<div class="stack">
+    ${waiting ? `<div class="alert info">${ic('info')}<div>${waiting} line(s) are waiting for customer approval on the <a href="#/jobs/${J.id}?tab=work">Work & estimate</a> tab. Only approved work can be issued.</div></div>` : ''}
+    <div class="card">${head('Parts', parts.length, parts.filter((l) => (l.issuedQty || 0) >= l.qty).length, canParts && toIssue().length ? `<button class="btn sm primary" onclick="issueAll(this)">${ic('box', 'sm')}Issue all parts (${toIssue().length})</button>` : '')}
+      ${parts.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Part</th><th class="right">Qty</th><th class="right">Issued</th><th>In stock</th><th>Status</th><th></th></tr></thead><tbody>${parts.map(partRow).join('')}</tbody></table></div>` : '<div class="empty small" style="padding:16px">No approved parts.</div>'}
+      <div class="card-b small muted" style="border-top:1px solid var(--line-2)">Parts are issued from stock oldest batch first (FIFO). Returned parts go back into the batches they came from.</div></div>
+    <div class="card">${head('Labour', labour.length, labour.filter((l) => l.labourIssue).length, canLab && labourToIssue().length ? `<button class="btn sm primary" onclick="issueAllLabour(this)">${ic('wrench', 'sm')}Issue all labour (${labourToIssue().length})</button>` : '')}
+      ${labour.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Labour</th><th>Status</th><th>Technician</th><th></th></tr></thead><tbody>${labour.map(labRow).join('')}</tbody></table></div>` : '<div class="empty small" style="padding:16px">No approved labour.</div>'}</div>
+  </div>`;
+}
+async function issueAllLabour(btn) {
+  const ls = labourToIssue();
+  if (!(await confirmBox('Issue all labour?', `${ls.length} labour line(s) will be issued${J.technician ? ' to ' + esc(J.technician) : ''}:<br>${ls.map((l) => '• ' + esc(l.description)).join('<br>')}`, 'Issue labour'))) return;
+  jobCall(btn, 'POST', '/issue-labour', {}, 'Labour issued');
 }
 async function issueAll(btn) {
   const ls = toIssue();

@@ -116,6 +116,7 @@ function rightsFor(method, path, body = {}) {
     if (sub === 'attachments') return method === 'GET' ? ['jobs.view'] : ['jobs.edit'];
     if (sub === 'claim') return ['jobs.edit'];
     if (sub === 'issue-parts' || /\/lines\/[^/]+\/(issue|return)$/.test(p)) return ['stock.issue'];
+    if (sub === 'issue-labour' || /\/lines\/[^/]+\/(issue|unissue)-labour$/.test(p)) return ['jobs.edit'];
     if (sub === 'stage') return ['jobs.stage'];
     if (sub === 'status') {
       const a = String(body.action || '');

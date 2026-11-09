@@ -954,3 +954,29 @@ test('packages & campaigns masters, branches, stock reservations', async () => {
   assert.equal(st.reserved, 0);
   await api('POST', '/admin/reset');
 });
+
+test('labour issue: approved labour is issued to a technician and can be set back', async () => {
+  await api('POST', '/admin/reset');
+  const id = 'RO-2026-00564';
+  const l = (await api('POST', `/jobcards/${id}/lines`, { kind: 'labour', code: 'H0140' })).body.lines.pop();
+  assert.equal((await api('POST', `/jobcards/${id}/lines/${l.id}/issue-labour`, {})).status, 409); // not approved yet
+  await api('PATCH', `/jobcards/${id}/lines/${l.id}`, { status: 'approved' });
+  assert.equal((await api('POST', `/jobcards/${id}/lines/${l.id}/issue`, {})).status, 400); // labour is not issued from stock
+  assert.equal((await api('POST', `/jobcards/${id}/lines/${l.id}/issue-labour`, { technician: 'Nobody' })).status, 400);
+  assert.equal((await api('POST', `/jobcards/${id}/lines/${l.id}/issue-labour`, {}, 'U006')).status, 403); // parts manager can't edit jobs
+  const ok = await api('POST', `/jobcards/${id}/lines/${l.id}/issue-labour`, { technician: 'Suresh M' });
+  assert.equal(ok.status, 200);
+  const line = ok.body.lines.find((x) => x.id === l.id);
+  assert.equal(line.labourIssue.to, 'Suresh M');
+  assert.equal((await api('POST', `/jobcards/${id}/lines/${l.id}/issue-labour`, {})).status, 409); // already issued
+  // customer withdraws approval: the labour goes back to not issued
+  const back = await api('PATCH', `/jobcards/${id}/lines/${l.id}`, { status: 'pending' });
+  assert.ok(!back.body.lines.find((x) => x.id === l.id).labourIssue);
+  await api('PATCH', `/jobcards/${id}/lines/${l.id}`, { status: 'approved' });
+  const all = await api('POST', `/jobcards/${id}/issue-labour`, {});
+  assert.equal(all.status, 200);
+  assert.ok(all.body.lines.filter((x) => x.kind === 'labour' && x.status === 'approved').every((x) => x.labourIssue));
+  assert.equal((await api('POST', `/jobcards/${id}/issue-labour`, {})).status, 409); // nothing left
+  assert.equal((await api('POST', `/jobcards/${id}/lines/${l.id}/unissue-labour`, {})).status, 200);
+  await api('POST', '/admin/reset');
+});

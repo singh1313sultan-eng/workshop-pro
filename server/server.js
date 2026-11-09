@@ -778,6 +778,7 @@ route('PATCH', '/api/jobcards/:id/lines/:lid', (req, q, p, body) => {
     if (!['pending', 'approved', 'declined'].includes(body.status)) throw bad('status must be pending, approved or declined');
     if (body.status === 'declined' && !str(body.reason)) throw bad('A reason is required when the customer declines', { field: 'reason' });
     if (body.status !== 'approved') stock.assertNotIssued(l, `mark it ${body.status}`, { conflict });
+    if (body.status !== 'approved' && l.labourIssue) { delete l.labourIssue; log(j, `Labour "${l.description}" set back to not issued`); }
     l.status = body.status;
     l.reason = str(body.reason);
     log(j, `Customer ${body.status} "${l.description}" (${lineAmount(l).toFixed(2)})${l.reason ? ` – ${l.reason}` : ''}`);
@@ -954,6 +955,45 @@ route('POST', '/api/jobcards/:id/issue-parts', (req, q, p) => {
   const short = [...need].filter(([code, n]) => ((part(code) || {}).stock || 0) + 1e-9 < n);
   if (short.length) throw conflict(`Not enough stock: ${short.map(([code, n]) => `${code} (need ${n}, have ${(part(code) || {}).stock || 0})`).join('; ')}`, { short: short.map(([code]) => code) });
   todo.forEach((l) => issueOne(j, l));
+  save();
+  return jobFull(j);
+});
+/* labour issue: an approved labour line is released to the workshop (to a technician) */
+function issueLabour(j, l, to) {
+  if (l.kind !== 'labour') throw bad('Only labour lines are issued this way – parts are issued from stock');
+  if (l.status !== 'approved') throw conflict('Only approved labour can be issued. Record the customer approval first.');
+  if (l.labourIssue) throw conflict(`${l.description} is already issued`);
+  const tech = str(to, 60) || j.technician || '';
+  if (tech && !db.users.some((u) => u.name === tech && u.active !== false)) throw bad('Unknown technician', { field: 'technician' });
+  l.labourIssue = { at: now(), by: actor ? actor.name : 'System', to: tech };
+  log(j, `Issued labour "${l.description}"${tech ? ' to ' + tech : ''}`);
+}
+route('POST', '/api/jobcards/:id/lines/:lid/issue-labour', (req, q, p, body) => {
+  const j = findJob(p.id);
+  assertOpen(j);
+  const l = j.lines.find((x) => x.id === Number(p.lid));
+  if (!l) throw notFound('Line');
+  issueLabour(j, l, body.technician);
+  save();
+  return jobFull(j);
+});
+route('POST', '/api/jobcards/:id/lines/:lid/unissue-labour', (req, q, p) => {
+  const j = findJob(p.id);
+  assertOpen(j);
+  const l = j.lines.find((x) => x.id === Number(p.lid));
+  if (!l) throw notFound('Line');
+  if (!l.labourIssue) throw conflict(`${l.description} is not issued`);
+  delete l.labourIssue;
+  log(j, `Labour "${l.description}" set back to not issued`);
+  save();
+  return jobFull(j);
+});
+route('POST', '/api/jobcards/:id/issue-labour', (req, q, p, body) => {
+  const j = findJob(p.id);
+  assertOpen(j);
+  const todo = j.lines.filter((l) => l.kind === 'labour' && l.status === 'approved' && !l.labourIssue);
+  if (!todo.length) throw conflict('There is no approved labour waiting to be issued');
+  todo.forEach((l) => issueLabour(j, l, body.technician));
   save();
   return jobFull(j);
 });
