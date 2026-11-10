@@ -370,7 +370,7 @@ route('GET', '/api/meta', () => {
   return {
     workshop: db.workshop,
     users: active.map(auth.publicUser),
-    outlets: (db.outlets || []).filter((o) => o.active !== false).map((o) => ({ id: o.id, name: o.name, code: o.code })),
+    outlets: (db.outlets || []).filter((o) => o.active !== false).map((o) => ({ id: o.id, name: o.name, code: o.code, dealerName: ((db.dealers || []).find((d) => d.id === o.dealerId) || {}).name || '' })),
     defaultOutletId: defaultOutletId(),
     lookups: Object.assign({}, db.lookups, {
       jobTypes: registration.activeNames(db.repairTypes, db.lookups.jobTypes),

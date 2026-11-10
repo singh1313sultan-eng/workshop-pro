@@ -49,7 +49,7 @@ function initBranchPicker() {
   const cur = localStorage.getItem('wpOutlet') || (allowed ? allowed[0] : 'all');
   el.innerHTML = `${allowed ? '' : `<option value="all" ${cur === 'all' ? 'selected' : ''}>All branches</option>`}${mine.map((o) => `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}`;
   el.classList.remove('hide');
-  el.onchange = () => { localStorage.setItem('wpOutlet', el.value); App.updateBadges(); App.refresh(); toast(el.value === 'all' ? 'Showing all branches' : `Working at ${el.options[el.selectedIndex].text}`); };
+  el.onchange = () => { localStorage.setItem('wpOutlet', el.value); updateBrandbar(); App.updateBadges(); App.refresh(); toast(el.value === 'all' ? 'Showing all branches' : `Working at ${el.options[el.selectedIndex].text}`); };
 }
 
 /* ================= settings: lists, import, backup, audit ================= */

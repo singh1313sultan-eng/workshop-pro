@@ -357,6 +357,19 @@ function updateBrandbar() {
   const n = document.getElementById('bbCname'); if (n) n.textContent = COUNTRIES[code] || code;
   const s = document.getElementById('bbSym'); if (s) s.textContent = sym;
   const k = document.getElementById('bbCode'); if (k) k.textContent = cur;
+  // left side: the dealer and the outlet (branch) you are working at
+  const outlets = (typeof App !== 'undefined' && App.meta && App.meta.outlets) || [];
+  let sel = null;
+  try { sel = localStorage.getItem('wpOutlet'); } catch { /* private mode */ }
+  const allowed = typeof App !== 'undefined' && App.me && App.me.outletIds;
+  if (allowed && (!sel || sel === 'all' || !allowed.includes(sel))) sel = allowed[0];
+  if (!sel && outlets.length === 1) sel = outlets[0].id;
+  const o = outlets.find((x) => x.id === sel);
+  const dealer = (o && o.dealerName) || w.name || 'Workshop Pro';
+  const outletText = o ? o.name : outlets.length > 1 ? 'All branches' : '';
+  const dEl = document.getElementById('bbDealer'); if (dEl) dEl.textContent = dealer;
+  const oEl = document.getElementById('bbOutlet'); if (oEl) { oEl.textContent = outletText; oEl.hidden = !outletText; }
+  const org = document.getElementById('bbOrg'); if (org) org.title = dealer + (outletText ? ' · ' + outletText : '');
   const chip = document.getElementById('bbCur'); if (chip) chip.title = 'All amounts are in ' + cur + (cur === 'AUD' ? ' (Australian dollars), GST inclusive totals shown on invoices' : '');
 }
 document.addEventListener('DOMContentLoaded', updateBrandbar);
